@@ -75,6 +75,13 @@ enum scpi_transport_layer {
 	SCPI_TRANSPORT_VXI,
 };
 
+enum scpi_quirks {
+	SCPI_QUIRK_CMD_OMIT_LF         = (1 << 0),
+	SCPI_QUIRK_OPC_UNSUPPORTED     = (1 << 1),
+	SCPI_QUIRK_SLOW_CHANNEL_SELECT = (1 << 2),
+	SCPI_QUIRK_DELAY_AFTER_CMD     = (1 << 3),
+};
+
 struct scpi_command {
 	int command;
 	const char *string;
@@ -113,6 +120,7 @@ struct sr_scpi_dev_inst {
 	uint64_t firmware_version;
 	GMutex scpi_mutex;
 	char *actual_channel_name;
+	uint32_t quirks;
 };
 
 SR_PRIV GSList *sr_scpi_scan(struct drv_context *drvc, GSList *options,
