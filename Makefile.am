@@ -533,6 +533,12 @@ src_libdrivers_la_SOURCES += \
 	src/hardware/rdtech-tc/protocol.c \
 	src/hardware/rdtech-tc/api.c
 endif
+if HW_RIDEN_RD
+src_libdrivers_la_SOURCES += \
+	src/hardware/riden-rd/protocol.h \
+	src/hardware/riden-rd/protocol.c \
+	src/hardware/riden-rd/api.c
+endif
 if HW_RIGOL_DS
 src_libdrivers_la_SOURCES += \
 	src/hardware/rigol-ds/protocol.h \
