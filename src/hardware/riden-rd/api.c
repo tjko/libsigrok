@@ -88,9 +88,9 @@ static struct sr_dev_inst *probe_device(struct sr_modbus_dev_inst *modbus)
 	ret = sr_modbus_read_holding_registers(modbus, 0, 4, registers);
 	if (ret != SR_OK)
 		return NULL;
-	id = RB16(&registers[0])/10;
-	serial = g_strdup_printf("%08d", RB32(&registers[1]));
-	fw = g_strdup_printf("%1.2f", RB16(&registers[3]) / 100.0);
+	id = RB16(&registers[REG_MODEL])/10;
+	serial = g_strdup_printf("%08d", RB32(&registers[REG_SERIAL]));
+	fw = g_strdup_printf("%1.2f", RB16(&registers[REG_FIRMWARE]) / 100.0);
 
 	for (i = 0; i < ARRAY_SIZE(supported_models); i++)
 		if (id == supported_models[i].model) {
@@ -238,31 +238,37 @@ static int config_get(uint32_t key, GVariant **data,
 		ret = sr_sw_limits_config_get(&devc->limits, key, data);
 		break;
 	case SR_CONF_ENABLED:
-		if ((ret = riden_rd_read_registers(sdi, 18, 1, regs)) == SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_ENABLE,
+						   1, regs)) == SR_OK)
 			*data = g_variant_new_boolean(regs[0]);
 		break;
 	case SR_CONF_REGULATION:
-		if ((ret = riden_rd_read_registers(sdi, 17, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_REGULATION_STATUS,
+						   1, regs)) != SR_OK)
 			break;
 		*data = g_variant_new_string(regs[0] ? "CC" : "CV");
 		break;
 	case SR_CONF_VOLTAGE:
-		if ((ret = riden_rd_read_registers(sdi, 10, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_VOLTAGE,
+						   1, regs)) != SR_OK)
 			break;
 		*data = g_variant_new_double((double)regs[0] * devc->model->voltage[2]);
 		break;
 	case SR_CONF_VOLTAGE_TARGET:
-		if ((ret = riden_rd_read_registers(sdi, 8, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_VOLTAGE_TARGET,
+						   1, regs)) != SR_OK)
 			break;
 		*data = g_variant_new_double((double)regs[0] * devc->model->voltage[2]);
 		break;
 	case SR_CONF_CURRENT:
-		if ((ret = riden_rd_read_registers(sdi, 11, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_CURRENT,
+						   1, regs)) != SR_OK)
 			break;
 		*data = g_variant_new_double((double)regs[0] * devc->model->current[2]);
 		break;
 	case SR_CONF_CURRENT_LIMIT:
-		if ((ret = riden_rd_read_registers(sdi, 9, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_CURRENT_LIMIT,
+						   1, regs)) != SR_OK)
 			break;
 		*data = g_variant_new_double((double)regs[0] * devc->model->current[2]);
 		break;
@@ -270,27 +276,31 @@ static int config_get(uint32_t key, GVariant **data,
 		*data = g_variant_new_boolean(TRUE);
 		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE:
-		if ((ret = riden_rd_read_registers(sdi, 16, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_PROTECTION_STATUS,
+						   1, regs)) != SR_OK)
 			break;
 		*data = g_variant_new_boolean(regs[0] & 0x01);
 		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
-		if ((ret = riden_rd_read_registers(sdi, 82, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_OVP_THRESHOLD,
+						   1, regs)) != SR_OK)
 			break;
-		*data = g_variant_new_double((double)regs[0] * devc->model->voltage[2]);
+		*data = g_variant_new_double((double)regs[0] * devc->model->ovp[2]);
 		break;
 	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		*data = g_variant_new_boolean(TRUE);
 		break;
 	case SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
-		if ((ret = riden_rd_read_registers(sdi, 16, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_PROTECTION_STATUS,
+						   1, regs)) != SR_OK)
 			break;
 		*data = g_variant_new_boolean(regs[0] & 0x02);
 		break;
 	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
-		if ((ret = riden_rd_read_registers(sdi, 83, 1, regs)) != SR_OK)
+		if ((ret = riden_rd_read_registers(sdi, REG_OCP_THRESHOLD,
+						   1, regs)) != SR_OK)
 			break;
-		*data = g_variant_new_double((double)regs[0] * devc->model->current[2]);
+		*data = g_variant_new_double((double)regs[0] * devc->model->ocp[2]);
 		break;
 
 	default:
@@ -323,23 +333,24 @@ static int config_set(uint32_t key, GVariant *data,
 		ret = sr_sw_limits_config_set(&devc->limits, key, data);
 		break;
 	case SR_CONF_ENABLED:
-		ret = riden_rd_write_register(sdi, 18, g_variant_get_boolean(data));
+		ret = riden_rd_write_register(sdi, REG_ENABLE,
+					      g_variant_get_boolean(data));
 		break;
 	case SR_CONF_VOLTAGE_TARGET:
-		ret = riden_rd_write_register(sdi, 8,
+		ret = riden_rd_write_register(sdi, REG_VOLTAGE_TARGET,
 			g_variant_get_double(data) / devc->model->voltage[2]);
 		break;
 	case SR_CONF_CURRENT_LIMIT:
-		ret = riden_rd_write_register(sdi, 9,
+		ret = riden_rd_write_register(sdi, REG_CURRENT_LIMIT,
 			g_variant_get_double(data) / devc->model->current[2]);
 		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
-		ret = riden_rd_write_register(sdi, 82,
-			g_variant_get_double(data) / devc->model->voltage[2]);
+		ret = riden_rd_write_register(sdi, REG_OVP_THRESHOLD,
+			g_variant_get_double(data) / devc->model->ovp[2]);
 		break;
 	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
-		ret = riden_rd_write_register(sdi, 83,
-			g_variant_get_double(data) / devc->model->current[2]);
+		ret = riden_rd_write_register(sdi, REG_OCP_THRESHOLD,
+			g_variant_get_double(data) / devc->model->ocp[2]);
 		break;
 	default:
 		ret = SR_ERR_NA;
@@ -409,7 +420,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	modbus = sdi->conn;
 
 	ret = sr_modbus_source_add(sdi->session, modbus, G_IO_IN,
-				   100, riden_rd_receive_data, (void *)sdi);
+				   10, riden_rd_receive_data, (void *)sdi);
 	if (ret == SR_OK) {
 		sr_sw_limits_acquisition_start(&devc->limits);
 		std_session_send_df_header(sdi);

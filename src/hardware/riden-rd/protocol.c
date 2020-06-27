@@ -95,7 +95,7 @@ SR_PRIV void riden_rd_channel_send_value(const struct sr_dev_inst *sdi,
 	analog.data = &value;
 	analog.meaning->mq = mq;
 	analog.meaning->unit = unit;
-	analog.meaning->mqflags = SR_MQFLAG_DC;
+	//analog.meaning->mqflags = SR_MQFLAG_DC;
 
 	packet.type = SR_DF_ANALOG;
 	packet.payload = &analog;
@@ -126,25 +126,25 @@ SR_PRIV int riden_rd_receive_data(int fd, int revents, void *cb_data)
 
 
 	/* read: voltage, current, power */
-	if ((ret = riden_rd_read_registers(sdi, 10, 4, regs)) != SR_OK)
+	if ((ret = riden_rd_read_registers(sdi, REG_VOLTAGE, 4, regs)) != SR_OK)
 		goto done;
 	voltage = regs[0] * devc->model->voltage[2];
 	current = regs[1] * devc->model->current[2];
 	power = regs[3] * devc->model->power[2];
 
 	/* read: capacity, energy */
-	if ((ret = riden_rd_read_registers(sdi, 38, 4, regs)) != SR_OK)
+	if ((ret = riden_rd_read_registers(sdi, REG_CAPACITY, 4, regs)) != SR_OK)
 		goto done;
 	capacity = ((regs[0] << 16) + regs[1]) * 0.001;
 	energy = ((regs[2] << 16) + regs[3]) * 0.001;
 
 	/* read: internal temperature */
-	if ((ret = riden_rd_read_registers(sdi, 4, 2, regs)) != SR_OK)
+	if ((ret = riden_rd_read_registers(sdi, REG_TEMP_INTERNAL, 2, regs)) != SR_OK)
 		goto done;
 	temp1 = (regs[0]  ? -1 : 1) * regs[1];
 
 	/* read: external temperature */
-	if ((ret = riden_rd_read_registers(sdi, 34, 2, regs)) != SR_OK)
+	if ((ret = riden_rd_read_registers(sdi, REG_TEMP_EXTERNAL, 2, regs)) != SR_OK)
 		goto done;
 	temp2 = (regs[0] ? -1 : 1) * regs[1];
 
@@ -163,7 +163,7 @@ SR_PRIV int riden_rd_receive_data(int fd, int revents, void *cb_data)
 				    SR_UNIT_AMPERE, devc->model->current[3]);
 	l = g_slist_nth(sdi->channels, i++);
 	riden_rd_channel_send_value(sdi, l->data, power, SR_MQ_POWER,
-				    SR_UNIT_WATT, devc->model->current[3]);
+				    SR_UNIT_WATT, devc->model->power[3]);
 	/*
 	l = g_slist_nth(sdi->channels, i++);
 	riden_rd_channel_send_value(sdi, l->data, capacity, SR_MQ_CAPACITY,

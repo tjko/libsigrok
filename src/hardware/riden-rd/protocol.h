@@ -27,6 +27,39 @@
 
 #define LOG_PREFIX "riden-rd"
 
+enum riden_modbus_registers {
+	REG_MODEL                   = 0,
+	REG_SERIAL                  = 1,
+	REG_FIRMWARE                = 3,
+	REG_TEMP_INTERNAL           = 4, /* two registers */
+	REG_TEMP_INTERNAL_F         = 6, /* two registers */
+	REG_VOLTAGE_TARGET          = 8,
+	REG_CURRENT_LIMIT           = 9,
+	REG_VOLTAGE                 = 10,
+	REG_CURRENT                 = 11,
+/*	REG_ENERGY                  = 12, */
+	REG_POWER                   = 13,
+	REG_INPUT_VOLTAGE           = 14,
+	REG_PROTECTION_STATUS       = 16, /* OVP/OCP status */
+	REG_REGULATION_STATUS       = 17, /* CV/CC */
+	REG_ENABLE                  = 18,
+	REG_BATTERY_MODE            = 32,
+	REG_BATTERY_VOLTAGE         = 33,
+	REG_TEMP_EXTERNAL           = 34, /* two registers */
+	REG_TEMP_EXTERNAL_F         = 36, /* two registers */
+	REG_CAPACITY                = 38, /* two registers */
+	REG_ENERGY                  = 40, /* two registers */
+	REG_DATE_YEAR               = 48,
+	REG_DATE_MONTH              = 49,
+	REG_DATE_DAY                = 50,
+	REG_TIME_HOUR               = 51,
+	REG_TIME_MIN                = 52,
+	REG_TIME_SEC                = 53,
+	REG_BACKLIGHT               = 72,
+	REG_OVP_THRESHOLD           = 82,
+	REG_OCP_THRESHOLD           = 83,
+};
+
 struct riden_model {
 	uint16_t model;
 	const char *name;
