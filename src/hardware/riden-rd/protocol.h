@@ -27,6 +27,8 @@
 
 #define LOG_PREFIX "riden-rd"
 
+#define RIDEN_MAX_REGISTER  84
+
 enum riden_modbus_registers {
 	REG_MODEL                   = 0,
 	REG_SERIAL                  = 1,

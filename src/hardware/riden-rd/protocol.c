@@ -108,7 +108,7 @@ SR_PRIV int riden_rd_receive_data(int fd, int revents, void *cb_data)
 	struct sr_dev_inst *sdi;
 	struct dev_context *devc;
 	GSList *l;
-	uint16_t regs[4];
+	uint16_t regs[RIDEN_MAX_REGISTER];
 	double voltage, current, power, capacity, energy, temp1, temp2;
 	int ret, i;
 
@@ -125,28 +125,19 @@ SR_PRIV int riden_rd_receive_data(int fd, int revents, void *cb_data)
 		return TRUE;
 
 
-	/* read: voltage, current, power */
-	if ((ret = riden_rd_read_registers(sdi, REG_VOLTAGE, 4, regs)) != SR_OK)
-		goto done;
-	voltage = regs[0] * devc->model->voltage[2];
-	current = regs[1] * devc->model->current[2];
-	power = regs[3] * devc->model->power[2];
+	/* read all registers at once, as its faster than multiple
+	   smaller reads... */
+	if ((ret = riden_rd_read_registers(sdi, 0, RIDEN_MAX_REGISTER,
+					   regs)) != SR_OK)
+		return TRUE;
 
-	/* read: capacity, energy */
-	if ((ret = riden_rd_read_registers(sdi, REG_CAPACITY, 4, regs)) != SR_OK)
-		goto done;
-	capacity = ((regs[0] << 16) + regs[1]) * 0.001;
-	energy = ((regs[2] << 16) + regs[3]) * 0.001;
-
-	/* read: internal temperature */
-	if ((ret = riden_rd_read_registers(sdi, REG_TEMP_INTERNAL, 2, regs)) != SR_OK)
-		goto done;
-	temp1 = (regs[0]  ? -1 : 1) * regs[1];
-
-	/* read: external temperature */
-	if ((ret = riden_rd_read_registers(sdi, REG_TEMP_EXTERNAL, 2, regs)) != SR_OK)
-		goto done;
-	temp2 = (regs[0] ? -1 : 1) * regs[1];
+	voltage = regs[REG_VOLTAGE] * devc->model->voltage[2];
+	current = regs[REG_CURRENT] * devc->model->current[2];
+	power = regs[REG_POWER] * devc->model->power[2];
+	capacity = ((regs[REG_CAPACITY] << 16) + regs[REG_CAPACITY + 1]) * 0.001;
+	energy = ((regs[REG_ENERGY] << 16) + regs[REG_ENERGY + 1]) * 0.001;
+	temp1 = (regs[REG_TEMP_INTERNAL] ? -1 : 1) * regs[REG_TEMP_INTERNAL + 1];
+	temp2 = (regs[REG_TEMP_EXTERNAL] ? -1 : 1) * regs[REG_TEMP_EXTERNAL + 1];
 
 	sr_dbg("V=%.3fV I=%.3fA P=%.3fW C=%.3fAh E=%.3fWh T1=%.1fC T2=%.1fC",
 	       voltage,current,power,capacity,energy,temp1,temp2);
@@ -181,8 +172,6 @@ SR_PRIV int riden_rd_receive_data(int fd, int revents, void *cb_data)
 
 	std_session_send_df_frame_end(sdi);
 	sr_sw_limits_update_samples_read(&devc->limits, 1);
-
-done:
 
 	if (sr_sw_limits_check(&devc->limits))
 		sr_dev_acquisition_stop(sdi);
