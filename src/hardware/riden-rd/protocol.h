@@ -27,9 +27,32 @@
 
 #define LOG_PREFIX "riden-rd"
 
-struct dev_context {
+struct riden_model {
+	uint16_t model;
+	const char *name;
+
+	/* Min, max, programming resolution, spec digits, encoding digits. */
+	double voltage[5];
+	double current[5];
+	double power[5];
+	double ovp[5];
+	double ocp[5];
 };
 
+struct dev_context {
+	const struct riden_model *model;
+
+	struct sr_sw_limits limits;
+	GMutex mutex;
+};
+
+SR_PRIV int riden_rd_read_registers(const struct sr_dev_inst *sdi, int address,
+				    int nb_registers, uint16_t *registers);
+SR_PRIV int riden_rd_write_register(const struct sr_dev_inst *sdi, int address,
+				    uint16_t value);
+SR_PRIV void riden_rd_channel_send_value(const struct sr_dev_inst *sdi,
+					 struct sr_channel *ch, float value,
+					 enum sr_mq mq, enum sr_unit unit, int digits);
 SR_PRIV int riden_rd_receive_data(int fd, int revents, void *cb_data);
 
 #endif
