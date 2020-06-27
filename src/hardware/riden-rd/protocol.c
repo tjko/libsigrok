@@ -18,6 +18,7 @@
  */
 
 #include <config.h>
+#include <math.h>
 #include "protocol.h"
 
 SR_PRIV int riden_rd_read_registers(const struct sr_dev_inst *sdi,
@@ -137,7 +138,11 @@ SR_PRIV int riden_rd_receive_data(int fd, int revents, void *cb_data)
 	capacity = ((regs[REG_CAPACITY] << 16) + regs[REG_CAPACITY + 1]) * 0.001;
 	energy = ((regs[REG_ENERGY] << 16) + regs[REG_ENERGY + 1]) * 0.001;
 	temp1 = (regs[REG_TEMP_INTERNAL] ? -1 : 1) * regs[REG_TEMP_INTERNAL + 1];
+	if (temp1 <= -191)
+		temp1 = -INFINITY;
 	temp2 = (regs[REG_TEMP_EXTERNAL] ? -1 : 1) * regs[REG_TEMP_EXTERNAL + 1];
+	if (temp2 <= -191)
+		temp2 = -INFINITY;
 
 	sr_dbg("V=%.3fV I=%.3fA P=%.3fW C=%.3fAh E=%.3fWh T1=%.1fC T2=%.1fC",
 	       voltage,current,power,capacity,energy,temp1,temp2);

@@ -27,7 +27,6 @@
 
 #define LOG_PREFIX "riden-rd"
 
-#define RIDEN_MAX_REGISTER  84
 
 enum riden_modbus_registers {
 	REG_MODEL                   = 0,
@@ -39,7 +38,6 @@ enum riden_modbus_registers {
 	REG_CURRENT_LIMIT           = 9,
 	REG_VOLTAGE                 = 10,
 	REG_CURRENT                 = 11,
-/*	REG_ENERGY                  = 12, */
 	REG_POWER                   = 13,
 	REG_INPUT_VOLTAGE           = 14,
 	REG_PROTECTION_STATUS       = 16, /* OVP/OCP status */
@@ -60,7 +58,12 @@ enum riden_modbus_registers {
 	REG_BACKLIGHT               = 72,
 	REG_OVP_THRESHOLD           = 82,
 	REG_OCP_THRESHOLD           = 83,
+	REG_MEM_START               = 84, /* 4 registers for each memory (0-9) */
 };
+
+/* last register needed to read during acquisition */
+#define RIDEN_MAX_REGISTER  (REG_ENERGY + 2) 
+
 
 struct riden_model {
 	uint16_t model;
