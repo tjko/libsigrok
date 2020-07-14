@@ -257,7 +257,7 @@ static int config_get(uint32_t key, GVariant **data,
 			*data = g_variant_new_boolean(devc->output_enabled);
 			break;
 		default:
-			return SR_ERR_NA;
+			return sr_sw_limits_config_get(&devc->limits, key, data);
 		}
 	} else {
 		ch = cg->channels->data;
