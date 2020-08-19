@@ -190,6 +190,36 @@ SR_PRIV const struct scpi_dmm_model models[] = {
 		ARRAY_AND_SIZE(devopts_generic),
 		1000 * 2500,
 	},
+#if 0
+	{
+		"GWInstek", "GDM8261A",
+		1, 6, cmdset_gwinstek, ARRAY_AND_SIZE(mqopts_gwinstek_gdm8200a),
+		scpi_dmm_get_meas_gwinstek,
+		ARRAY_AND_SIZE(devopts_generic),
+		0,
+	},
+	{
+		"GWInstek", "GDM8341",
+		1, 5, cmdset_gwinstek, ARRAY_AND_SIZE(mqopts_gwinstek_gdm8200a),
+		scpi_dmm_get_meas_gwinstek,
+		ARRAY_AND_SIZE(devopts_generic),
+		0,
+	},
+	{
+		"GWInstek", "GDM8342",
+		1, 5, cmdset_gwinstek, ARRAY_AND_SIZE(mqopts_gwinstek_gdm8200a),
+		scpi_dmm_get_meas_gwinstek,
+		ARRAY_AND_SIZE(devopts_generic),
+		0,
+	},
+	{
+		"GWInstek", "GDM8351",
+		1, 5, cmdset_gwinstek, ARRAY_AND_SIZE(mqopts_gwinstek_gdm8200a),
+		scpi_dmm_get_meas_gwinstek,
+		ARRAY_AND_SIZE(devopts_generic),
+		0,
+	},
+#endif
 	{
 		"GWInstek", "GDM9060",
 		1, 6, cmdset_gwinstek_906x, ARRAY_AND_SIZE(mqopts_gwinstek_gdm906x),
