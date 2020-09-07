@@ -116,10 +116,10 @@ static const struct scpi_command cmdset_dg1000z[] = {
 	{ PSG_CMD_SET_OFFSET, "SOUR%s:VOLT:OFFS %f", },
 	{ PSG_CMD_GET_PHASE, "SOUR%s:PHAS?", },
 	{ PSG_CMD_SET_PHASE, "SOUR%s:PHAS %f", },
-	{ PSG_CMD_GET_DCYCL_PULSE, "SOUR%s:PULS:DCYC?", },
-	{ PSG_CMD_SET_DCYCL_PULSE, "SOUR%s:PULS:DCYC %f", },
-	{ PSG_CMD_GET_DCYCL_SQUARE, "SOUR%s:SQU:DCYC?", },
-	{ PSG_CMD_SET_DCYCL_SQUARE, "SOUR%s:SQU:DCYC %f", },
+	{ PSG_CMD_GET_DCYCL_PULSE, "SOUR%s:FUNC:PULS:DCYC?", },
+	{ PSG_CMD_SET_DCYCL_PULSE, "SOUR%s:FUNC:PULS:DCYC %f", },
+	{ PSG_CMD_GET_DCYCL_SQUARE, "SOUR%s:FUNC:SQU:DCYC?", },
+	{ PSG_CMD_SET_DCYCL_SQUARE, "SOUR%s:FUNC:SQU:DCYC %f", },
 	{ PSG_CMD_COUNTER_GET_ENABLED, "COUN:STAT?", },
 	{ PSG_CMD_COUNTER_SET_ENABLE, "COUN:STAT ON", },
 	{ PSG_CMD_COUNTER_SET_DISABLE, "COUN:STAT OFF", },
@@ -476,9 +476,9 @@ static int config_set(uint32_t key, GVariant *data,
 		case SR_CONF_DUTY_CYCLE:
 			if (ch_status->wf_spec->opts & WFO_DUTY_CYCLE) {
 				if (ch_status->wf == WF_SQUARE)
-					cmd = PSG_CMD_GET_DCYCL_SQUARE;
+					cmd = PSG_CMD_SET_DCYCL_SQUARE;
 				else if (ch_status->wf == WF_PULSE)
-					cmd = PSG_CMD_GET_DCYCL_PULSE;
+					cmd = PSG_CMD_SET_DCYCL_PULSE;
 				else {
 					ret = SR_ERR_NA;
 					break;
