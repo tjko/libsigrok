@@ -242,7 +242,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 static int dev_open(struct sr_dev_inst *sdi)
 {
-	sr_spew("%s(%p): called", __func__, sdi);
 	return sr_scpi_open(sdi->conn);
 }
 
@@ -252,7 +251,7 @@ static int dev_close(struct sr_dev_inst *sdi)
 	struct sr_scpi_dev_inst *scpi;
 	const char *command;
 
-	sr_spew("%s(%p): called", __func__, sdi);
+
 	devc = sdi->priv;
 	scpi = sdi->conn;
 	if (!scpi)
@@ -279,7 +278,7 @@ static int config_get(uint32_t key, GVariant **data,
 	uint32_t cmd;
 	int ret;
 
-	sr_spew("%s(%d,%p,%p,%p): called", __func__, key, data, sdi, cg);
+
 	if (!sdi || !data)
 		return SR_ERR_ARG;
 
@@ -295,8 +294,8 @@ static int config_get(uint32_t key, GVariant **data,
 			ret = sr_sw_limits_config_get(&devc->limits, key, data);
 			break;
 		default:
-			sr_info("%s: Unsupported key: %d (%s)", __func__, key,
-				(kinfo ? kinfo->name : "unknown"));
+			sr_dbg("%s: Unsupported key: %d (%s)", __func__, key,
+			       (kinfo ? kinfo->name : "unknown"));
 			ret = SR_ERR_NA;
 		}
 	} else {
@@ -353,8 +352,8 @@ static int config_get(uint32_t key, GVariant **data,
 					       cmd, cg->name);
 			break;
 		default:
-			sr_info("%s: Unsupported (cg) key: %d (%s)", __func__, key,
-				(kinfo ? kinfo->name : "unknown"));
+			sr_dbg("%s: Unsupported (cg) key: %d (%s)", __func__, key,
+			       (kinfo ? kinfo->name : "unknown"));
 			ret = SR_ERR_NA;
 		}
 	}
@@ -377,7 +376,7 @@ static int config_set(uint32_t key, GVariant *data,
 	const char *mode, *mode_name, *new_mode;
 	unsigned int i;
 
-	sr_spew("%s(%d,%p,%p,%p): called", __func__, key, data, sdi, cg);
+
 	if (!data || !sdi)
 		return SR_ERR_ARG;
 
@@ -394,8 +393,8 @@ static int config_set(uint32_t key, GVariant *data,
 			ret = sr_sw_limits_config_set(&devc->limits, key, data);
 			break;
 		default:
-			sr_info("%s: Unsupported key: %d (%s)", __func__, key,
-				(kinfo ? kinfo->name : "unknown"));
+			sr_dbg("%s: Unsupported key: %d (%s)", __func__, key,
+			       (kinfo ? kinfo->name : "unknown"));
 			ret = SR_ERR_NA;
 		}
 	} else {
@@ -493,8 +492,8 @@ static int config_set(uint32_t key, GVariant *data,
 			}
 			break;
 		default:
-			sr_info("%s: Unsupported key: %d (%s)", __func__, key,
-				(kinfo ? kinfo->name : "unknown"));
+			sr_dbg("%s: Unsupported key: %d (%s)", __func__, key,
+			       (kinfo ? kinfo->name : "unknown"));
 			ret = SR_ERR_NA;
 		}
 	}
@@ -514,11 +513,10 @@ static int config_list(uint32_t key, GVariant **data,
 	unsigned int i;
 	double fspec[3];
 
-	sr_spew("%s(%d,%p,%p,%p): called", __func__, key, data, sdi, cg);
+
 	devc = NULL;
 	if (sdi)
 		devc = sdi->priv;
-
 
 	if (!cg) {
 		switch (key) {
@@ -584,7 +582,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	char *response;
 	int ret;
 
-	sr_spew("%s(%p): called", __func__, sdi);
+
 	if (!sdi)
 		return SR_ERR_ARG;
 
@@ -637,7 +635,6 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	const char *cmd;
 	int ret;
 
-	sr_spew("%s(%p): called", __func__, sdi);
 	if (!sdi)
 		return SR_ERR_ARG;
 

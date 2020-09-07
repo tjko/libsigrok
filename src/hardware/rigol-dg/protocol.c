@@ -196,7 +196,6 @@ SR_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data)
 	GSList *l;
 	int i, start_idx, ret;
 
-	sr_spew("%s(%d, %d, %p): called", __func__, fd, revents, cb_data);
 
 	(void)fd;
 	(void)revents;
