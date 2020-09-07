@@ -201,7 +201,7 @@ static struct sr_key_info sr_key_info_config[] = {
 		"Range", NULL},
 	{SR_CONF_DIGITS, SR_T_STRING, "digits",
 		"Digits", NULL},
-	{SR_CONF_DUTY_CYCLE, SR_T_FLOAT, "duty_cycle",
+	{SR_CONF_DUTY_CYCLE, SR_T_FLOAT, "output_duty_cycle",
 		"Duty Cycle", NULL},
 	{SR_CONF_PHASE, SR_T_FLOAT, "phase",
 		"Phase", NULL},
