@@ -53,7 +53,6 @@ enum psg_commands {
 	PSG_CMD_COUNTER_SET_ENABLE,
 	PSG_CMD_COUNTER_SET_DISABLE,
 	PSG_CMD_COUNTER_MEASURE,
-
 };
 
 enum waveform_type {
@@ -115,11 +114,18 @@ struct dev_context {
 	const struct device_spec *device;
 	struct channel_status *ch_status;
 	struct sr_sw_limits limits;
+	gboolean counter_enabled;
 };
 
 SR_PRIV const char* waveform_type_to_string(enum waveform_type type);
-SR_PRIV const struct waveform_spec* get_waveform_spec(const struct channel_spec *ch, enum waveform_type wf);
-SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi, const struct sr_channel_group *cg);
+SR_PRIV const struct waveform_spec* get_waveform_spec(const struct channel_spec *ch,
+						      enum waveform_type wf);
+SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi,
+				       const struct sr_channel_group *cg);
+SR_PRIV void rigol_dg_send_channel_value(const struct sr_dev_inst *sdi,
+					 struct sr_channel *ch, double value,
+					 enum sr_mq mq, enum sr_unit unit,
+					 int digits);
 SR_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data);
 
 #endif

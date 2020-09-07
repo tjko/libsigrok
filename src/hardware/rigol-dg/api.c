@@ -212,13 +212,16 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 		sdi->channel_groups = g_slist_append(sdi->channel_groups, cg);
 	}
 
-	snprintf(tmp, sizeof(tmp), "C%d", 1);
-	ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, tmp);
+	ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "FREQ1");
+	ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "PERIOD1");
+	ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "DUTY1");
+	ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "WIDTH1");
 
 	sr_scpi_hw_info_free(hw_info);
 
-	command = sr_scpi_cmd_get(devc->device->cmdset, PSG_CMD_SETUP_LOCAL);
+	command = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_SETUP_LOCAL);
 	if (command && *command) {
+		sr_scpi_get_opc(scpi);
 		sr_scpi_send(scpi, command);
 	}
 
@@ -239,6 +242,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 static int dev_open(struct sr_dev_inst *sdi)
 {
+	sr_spew("%s(%p): called", __func__, sdi);
 	return sr_scpi_open(sdi->conn);
 }
 
@@ -248,6 +252,7 @@ static int dev_close(struct sr_dev_inst *sdi)
 	struct sr_scpi_dev_inst *scpi;
 	const char *command;
 
+	sr_spew("%s(%p): called", __func__, sdi);
 	devc = sdi->priv;
 	scpi = sdi->conn;
 	if (!scpi)
@@ -256,6 +261,7 @@ static int dev_close(struct sr_dev_inst *sdi)
 	/* Put unit back to LOCAL mode. */
 	command = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_SETUP_LOCAL);
 	if (command && *command) {
+		sr_scpi_get_opc(scpi);
 		sr_scpi_send(scpi, command);
 	}
 
@@ -266,16 +272,19 @@ static int config_get(uint32_t key, GVariant **data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
+	struct sr_scpi_dev_inst *scpi;
 	struct sr_channel *ch;
 	struct channel_status *ch_status;
 	const struct sr_key_info *kinfo;
 	uint32_t cmd;
 	int ret;
 
+	sr_spew("%s(%d,%p,%p,%p): called", __func__, key, data, sdi, cg);
 	if (!sdi || !data)
 		return SR_ERR_ARG;
 
 	devc = sdi->priv;
+	scpi = sdi->conn;
 	ret = SR_OK;
 	kinfo = sr_key_info_get(SR_KEY_CONFIG, key);
 
@@ -296,7 +305,8 @@ static int config_get(uint32_t key, GVariant **data,
 	
 		switch (key) {
 		case SR_CONF_ENABLED:
-			ret = sr_scpi_cmd_resp(sdi, devc->device->cmdset,
+			sr_scpi_get_opc(scpi);
+			ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
 					       PSG_CMD_SELECT_CHANNEL, cg->name,
 					       data, G_VARIANT_TYPE_BOOLEAN,
 					       PSG_CMD_GET_ENABLED, cg->name);
@@ -336,7 +346,8 @@ static int config_get(uint32_t key, GVariant **data,
 				ret = SR_ERR_NA;
 				break;
 			}
-			ret = sr_scpi_cmd_resp(sdi, devc->device->cmdset,
+			sr_scpi_get_opc(scpi);
+			ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
 					       PSG_CMD_SELECT_CHANNEL, cg->name,
 					       data, G_VARIANT_TYPE_DOUBLE,
 					       cmd, cg->name);
@@ -355,6 +366,7 @@ static int config_set(uint32_t key, GVariant *data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
+	struct sr_scpi_dev_inst *scpi;
 	struct sr_channel *ch;
 	const struct  channel_spec *ch_spec;
 	struct channel_status *ch_status;
@@ -365,10 +377,12 @@ static int config_set(uint32_t key, GVariant *data,
 	const char *mode, *mode_name, *new_mode;
 	unsigned int i;
 
+	sr_spew("%s(%d,%p,%p,%p): called", __func__, key, data, sdi, cg);
 	if (!data || !sdi)
 		return SR_ERR_ARG;
 
 	devc = sdi->priv;
+	scpi = sdi->conn;
 	kinfo = sr_key_info_get(SR_KEY_CONFIG, key);
 	
 	ret = SR_OK;
@@ -391,6 +405,7 @@ static int config_set(uint32_t key, GVariant *data,
 
 		if ((ret = rigol_dg_get_channel_state(sdi, cg)) != SR_OK)
 			return ret;
+		sr_scpi_get_opc(scpi);
 		
 		switch (key) {
 		case SR_CONF_ENABLED:
@@ -398,7 +413,7 @@ static int config_set(uint32_t key, GVariant *data,
 				cmd = PSG_CMD_SET_ENABLE;
 			else
 				cmd = PSG_CMD_SET_DISABLE;
-			ret = sr_scpi_cmd(sdi, devc->device->cmdset,
+			ret = sr_scpi_cmd(sdi, devc->cmdset,
 					  PSG_CMD_SELECT_CHANNEL, cg->name,
 					  cmd, cg->name);
 			break;
@@ -412,7 +427,7 @@ static int config_set(uint32_t key, GVariant *data,
 				}
 			}
 			if (new_mode) {
-				ret = sr_scpi_cmd(sdi, devc->device->cmdset,
+				ret = sr_scpi_cmd(sdi, devc->cmdset,
 						  PSG_CMD_SELECT_CHANNEL, cg->name,
 						  PSG_CMD_SET_SOURCE, cg->name, new_mode);
 			} else {
@@ -422,7 +437,7 @@ static int config_set(uint32_t key, GVariant *data,
 		case SR_CONF_OUTPUT_FREQUENCY:
 			if (ch_status->wf_spec->opts & WFO_FREQUENCY) {
 				f = g_variant_get_double(data);
-				ret = sr_scpi_cmd(sdi, devc->device->cmdset,
+				ret = sr_scpi_cmd(sdi, devc->cmdset,
 						  PSG_CMD_SELECT_CHANNEL, cg->name,
 						  PSG_CMD_SET_FREQUENCY, cg->name, f);
 			} else {
@@ -432,7 +447,7 @@ static int config_set(uint32_t key, GVariant *data,
 		case SR_CONF_AMPLITUDE:
 			if (ch_status->wf_spec->opts & WFO_AMPLITUDE) {
 				f = g_variant_get_double(data);
-				ret = sr_scpi_cmd(sdi, devc->device->cmdset,
+				ret = sr_scpi_cmd(sdi, devc->cmdset,
 						  PSG_CMD_SELECT_CHANNEL, cg->name,
 						  PSG_CMD_SET_AMPLITUDE, cg->name, f);
 			} else {
@@ -442,7 +457,7 @@ static int config_set(uint32_t key, GVariant *data,
 		case SR_CONF_OFFSET:
 			if (ch_status->wf_spec->opts & WFO_OFFSET) {
 				f = g_variant_get_double(data);
-				ret = sr_scpi_cmd(sdi, devc->device->cmdset,
+				ret = sr_scpi_cmd(sdi, devc->cmdset,
 						  PSG_CMD_SELECT_CHANNEL, cg->name,
 						  PSG_CMD_SET_OFFSET, cg->name, f);
 			} else {
@@ -452,7 +467,7 @@ static int config_set(uint32_t key, GVariant *data,
 		case SR_CONF_PHASE:
 			if (ch_status->wf_spec->opts & WFO_PHASE) {
 				f = g_variant_get_double(data);
-				ret = sr_scpi_cmd(sdi, devc->device->cmdset,
+				ret = sr_scpi_cmd(sdi, devc->cmdset,
 						  PSG_CMD_SELECT_CHANNEL, cg->name,
 						  PSG_CMD_SET_PHASE, cg->name, f);
 			} else {
@@ -470,7 +485,7 @@ static int config_set(uint32_t key, GVariant *data,
 					break;
 				}
 				f = g_variant_get_double(data);
-				ret = sr_scpi_cmd(sdi, devc->device->cmdset,
+				ret = sr_scpi_cmd(sdi, devc->cmdset,
 						  PSG_CMD_SELECT_CHANNEL, cg->name,
 						  cmd, cg->name, f);
 			} else {
@@ -499,6 +514,7 @@ static int config_list(uint32_t key, GVariant **data,
 	unsigned int i;
 	double fspec[3];
 
+	sr_spew("%s(%d,%p,%p,%p): called", __func__, key, data, sdi, cg);
 	devc = NULL;
 	if (sdi)
 		devc = sdi->priv;
@@ -562,21 +578,84 @@ static int config_list(uint32_t key, GVariant **data,
 
 static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 {
-	/* TODO: configure hardware, reset acquisition state, set up
-	 * callbacks and send header packet. */
+	struct dev_context *devc;
+	struct sr_scpi_dev_inst *scpi;
+	const char *cmd;
+	char *response;
+	int ret;
 
-	(void)sdi;
+	sr_spew("%s(%p): called", __func__, sdi);
+	if (!sdi)
+		return SR_ERR_ARG;
 
-	return SR_OK;
+	devc = sdi->priv;
+	scpi = sdi->conn;
+	response = NULL;
+	ret = SR_OK;
+
+	if (!scpi)
+		return SR_ERR_BUG;
+
+	cmd = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_GET_ENABLED);
+	if (cmd && *cmd) {
+		/* Check if counter is currently enabled */
+		ret = sr_scpi_get_string(scpi, cmd, &response);
+		if (ret != SR_OK)
+			return SR_ERR_NA;
+		if (!g_ascii_strncasecmp(response, "RUN", 3))
+			devc->counter_enabled = TRUE;
+		else devc->counter_enabled = FALSE;
+
+		if (!devc->counter_enabled) {
+			/* enable counter if it was not already running */
+			cmd = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_SET_ENABLE);
+			if (!cmd)
+				return SR_ERR_BUG;
+			sr_scpi_get_opc(scpi);
+			ret = sr_scpi_send(scpi, cmd);
+		}
+	}
+
+	if (ret == SR_OK) {
+		sr_sw_limits_acquisition_start(&devc->limits);
+		ret = std_session_send_df_header(sdi);
+		if (ret == SR_OK) {
+			ret = sr_scpi_source_add(sdi->session, scpi, G_IO_IN, 100,
+						 rigol_dg_receive_data, (void*)sdi);
+		}
+	}
+
+	g_free(response);
+
+	return ret;
 }
 
 static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 {
-	/* TODO: stop acquisition. */
+	struct dev_context *devc;
+	struct sr_scpi_dev_inst *scpi;
+	const char *cmd;
+	int ret;
 
-	(void)sdi;
+	sr_spew("%s(%p): called", __func__, sdi);
+	if (!sdi)
+		return SR_ERR_ARG;
 
-	return SR_OK;
+	devc = sdi->priv;
+	scpi = sdi->conn;
+	ret = SR_OK;
+
+	cmd = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_SET_DISABLE);
+	if (cmd && *cmd && !devc->counter_enabled) {
+		/* if counter was not running when acquisiton started, turn it off now... */
+		sr_scpi_get_opc(scpi);
+		ret = sr_scpi_send(scpi, cmd);
+	}
+
+	sr_scpi_source_remove(sdi->session, scpi);
+	std_session_send_df_end(sdi);
+
+	return ret;
 }
 
 static struct sr_dev_driver rigol_dg_driver_info = {
