@@ -311,6 +311,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			else {
 				sr_err("Unsupported floating-point unit size '%d' for analog-to-float"
 				       " conversion.", analog->encoding->unitsize);
+				return SR_ERR;
 			}
 		}
 	}
