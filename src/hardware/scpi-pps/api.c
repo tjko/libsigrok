@@ -173,10 +173,17 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 	sr_scpi_hw_info_free(hw_info);
 	hw_info = NULL;
 
+	if (devc->device->dialect == SCPI_DIALECT_SIGLENT) {
+		scpi->quirks |= SCPI_QUIRK_CMD_OMIT_LF;
+		scpi->quirks |= SCPI_QUIRK_OPC_UNSUPPORTED;
+		scpi->quirks |= SCPI_QUIRK_SLOW_CHANNEL_SELECT;
+	}
+
 	/* Don't send SCPI_CMD_LOCAL for HP 66xxB using SCPI over GPIB. */
 	if (!(devc->device->dialect == SCPI_DIALECT_HP_66XXB &&
 			scpi->transport == SCPI_TRANSPORT_LIBGPIB))
-		sr_scpi_cmd(sdi, devc->device->commands, 0, NULL, SCPI_CMD_LOCAL);
+		sr_scpi_cmd(sdi, devc->device->commands, 0, NULL,
+			SCPI_CMD_LOCAL);
 
 	return sdi;
 }
@@ -333,6 +340,7 @@ static int config_get(uint32_t key, GVariant **data,
 	int cmd, ret;
 	const char *s;
 	int reg;
+	long regl;
 	gboolean is_hmp_sqii;
 
 	if (!sdi)
@@ -364,7 +372,10 @@ static int config_get(uint32_t key, GVariant **data,
 	cmd = -1;
 	switch (key) {
 	case SR_CONF_ENABLED:
-		gvtype = G_VARIANT_TYPE_BOOLEAN;
+		if (devc->device->dialect == SCPI_DIALECT_SIGLENT)
+			gvtype = G_VARIANT_TYPE_STRING;
+		else
+			gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OUTPUT_ENABLED;
 		break;
 	case SR_CONF_VOLTAGE:
@@ -450,6 +461,10 @@ static int config_get(uint32_t key, GVariant **data,
 		gvtype = G_VARIANT_TYPE_STRING;
 		cmd = SCPI_CMD_GET_OUTPUT_REGULATION;
 		break;
+	case SR_CONF_CHANNEL_CONFIG:
+		gvtype = G_VARIANT_TYPE_STRING;
+		cmd = SCPI_CMD_GET_CHANNEL_CONFIG;
+		break;
 	default:
 		return sr_sw_limits_config_get(&devc->limits, key, data);
 	}
@@ -477,13 +492,27 @@ static int config_get(uint32_t key, GVariant **data,
 			0, NULL, data, gvtype, cmd, channel_group_name);
 	} else {
 		ret = sr_scpi_cmd_resp(sdi, devc->device->commands,
-			channel_group_cmd, channel_group_name, data, gvtype, cmd);
+			channel_group_cmd, channel_group_name, data, gvtype, cmd,
+			channel_group_name);
 	}
-	g_free(channel_group_name);
 
 	/*
 	 * Handle special cases
 	 */
+
+	if (cmd == SCPI_CMD_GET_OUTPUT_ENABLED) {
+		if (devc->device->dialect == SCPI_DIALECT_SIGLENT) {
+			s = g_variant_get_string(*data, NULL);
+			sr_atol_base(s, &regl, NULL, 16);
+			g_variant_unref(*data);
+			if (channel_group_name)
+				sr_atoi(channel_group_name, &reg);
+			else
+				reg=1;
+			regl = (regl >> (reg+3));
+			*data = g_variant_new_boolean(regl & 0x01);
+		}
+	}
 
 	if (cmd == SCPI_CMD_GET_OUTPUT_REGULATION) {
 		if (devc->device->dialect == SCPI_DIALECT_PHILIPS) {
@@ -541,6 +570,21 @@ static int config_get(uint32_t key, GVariant **data,
 				*data = g_variant_new_string("CV");
 			else
 				*data = g_variant_new_string("UR");
+		}
+		if (devc->device->dialect == SCPI_DIALECT_SIGLENT) {
+			/* Evaluate status register */
+			s = g_variant_get_string(*data, NULL);
+			sr_atol_base(s, &regl, NULL, 16);
+			g_variant_unref(*data);
+			if (channel_group_name)
+				sr_atoi(channel_group_name, &reg);
+			else
+				reg=1;
+			regl = (regl >> (reg-1));
+			if (regl & 0x01)
+				*data = g_variant_new_string("CC");
+			else
+				*data = g_variant_new_string("CV");
 		}
 
 		s = g_variant_get_string(*data, NULL);
@@ -604,6 +648,25 @@ static int config_get(uint32_t key, GVariant **data,
 		}
 	}
 
+	if (cmd == SCPI_CMD_GET_CHANNEL_CONFIG) {
+		if (devc->device->dialect == SCPI_DIALECT_SIGLENT) {
+			/* evaluate status register */
+			s = g_variant_get_string(*data, NULL);
+			sr_atol_base(s, &regl, NULL, 16);
+			g_variant_unref(*data);
+
+			regl = (regl >> 2) & 0x03;
+			if (regl == 0x02)
+				*data = g_variant_new_string("Parallel");
+			else if (regl == 0x03)
+				*data = g_variant_new_string("Series");
+			else
+				*data = g_variant_new_string("Independent");
+		}
+	}
+
+	g_free(channel_group_name);
+
 	return ret;
 }
 
@@ -614,6 +677,7 @@ static int config_set(uint32_t key, GVariant *data,
 	double d;
 	int channel_group_cmd;
 	char *channel_group_name;
+	const char *s;
 	int ret;
 
 	if (!sdi)
@@ -633,15 +697,23 @@ static int config_set(uint32_t key, GVariant *data,
 		if (g_variant_get_boolean(data))
 			ret = sr_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
-					SCPI_CMD_SET_OUTPUT_ENABLE);
+					SCPI_CMD_SET_OUTPUT_ENABLE,
+				        channel_group_name);
 		else
 			ret = sr_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
-					SCPI_CMD_SET_OUTPUT_DISABLE);
+					SCPI_CMD_SET_OUTPUT_DISABLE,
+					channel_group_name);
 		break;
 	case SR_CONF_VOLTAGE_TARGET:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		if (devc->device->dialect == SCPI_DIALECT_SIGLENT)
+			ret = sr_scpi_cmd(sdi, devc->device->commands,
+				channel_group_cmd, channel_group_name,
+				SCPI_CMD_SET_VOLTAGE_TARGET,
+				channel_group_name, d);
+		else
+			ret = sr_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_VOLTAGE_TARGET, d);
 		break;
@@ -653,7 +725,13 @@ static int config_set(uint32_t key, GVariant *data,
 		break;
 	case SR_CONF_CURRENT_LIMIT:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		if (devc->device->dialect == SCPI_DIALECT_SIGLENT)
+			ret = sr_scpi_cmd(sdi, devc->device->commands,
+				channel_group_cmd, channel_group_name,
+				SCPI_CMD_SET_CURRENT_LIMIT,
+				channel_group_name, d);
+		else
+			ret = sr_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_CURRENT_LIMIT, d);
 		break;
@@ -698,6 +776,20 @@ static int config_set(uint32_t key, GVariant *data,
 			ret = sr_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OVER_TEMPERATURE_PROTECTION_DISABLE);
+		break;
+	case SR_CONF_CHANNEL_CONFIG:
+		s = g_variant_get_string(data, NULL);
+		if (devc->device->dialect == SCPI_DIALECT_SIGLENT) {
+			if (!strncmp(s, "Parallel", 8))
+				s = "2";
+			else if (!strncmp(s, "Series", 6))
+				s = "1";
+			else
+				s = "0";
+		}
+		ret = sr_scpi_cmd(sdi, devc->device->commands,
+				channel_group_cmd, channel_group_name,
+				SCPI_CMD_SET_CHANNEL_CONFIG, s);
 		break;
 	default:
 		ret = sr_sw_limits_config_set(&devc->limits, key, data);
