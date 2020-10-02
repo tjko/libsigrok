@@ -101,8 +101,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	char *unit_model, *unit_serial, *unit_barcode;
 	double max_i, max_v, min_v, max_p, max_r, min_r;
 	uint64_t max_samplerate;
-	size_t u;
-	int ret, i;
+	size_t u, i;
+	int ret;
 
 	sr_spew("%s(%p,%p): called", __func__, di, options);
 
@@ -113,12 +113,18 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		return NULL;
 
 	serial = NULL;
-	conn = NULL;
-	serialcomm = NULL;
 	response = NULL;
 	unit_model = NULL;
 	unit_serial = NULL;
 
+	/*
+	 * Use a list of typical parameters for serial communication by
+	 * default. Prefer user specified parameters when available.
+	 * Lack of a user specified serial port is fatal.
+	 */
+	conn = NULL;
+	serialcomm = NULL;
+	serial_parameters = default_serial_parameters;
 	for (l = options; l; l = l->next) {
 		conf = l->data;
 		switch (conf->key) {
@@ -127,32 +133,21 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			break;
 		case SR_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(conf->data, NULL);
+			custom_serial_parameters[0] = serialcomm;
+			custom_serial_parameters[1] = NULL;
+			serial_parameters = custom_serial_parameters;
 			break;
 		}
 	}
-
 	if (!conn)
 		goto error;
-
-	/*
-	 * If serialcomm is specified use it, otherwise try out
-	 * known supported configurations.
-	 */
-	if (serialcomm) {
-		custom_serial_parameters[0] = serialcomm;
-		custom_serial_parameters[1] = NULL;
-		serial_parameters = custom_serial_parameters;
-	} else {
-		serial_parameters = default_serial_parameters;
-	}
 
 	/*
 	 * Try different serial parameters in the list
 	 * until we get a response (or none at all).
 	 */
 	sr_info("Probing serial port: %s", conn);
-	i = 0;
-	while ((serialcomm = serial_parameters[i++])) {
+	for (i = 0; (serialcomm = serial_parameters[i]); i++) {
 		serial = sr_serial_dev_inst_new(conn, serialcomm);
 		if (serial_open(serial, SERIAL_RDWR) != SR_OK)
 			goto error;
@@ -160,9 +155,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 		cmd->address = 0xff; /* Use "broadcast" address. */
 		cmd->command = CMD_GET_MODEL_INFO;
-		if (itech_it8500_send_cmd(serial, cmd, &response) == SR_OK) {
+		if (itech_it8500_send_cmd(serial, cmd, &response) == SR_OK)
 			break;
-		}
 
 		serial_close(serial);
 		sr_serial_dev_inst_free(serial);
@@ -171,6 +165,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!serialcomm)
 		goto error;
 
+	/*
+	 * The "dense" response string consists of several fields. Grab
+	 * integer data before putting terminators in their place to
+	 * grab text strings afterwards. Order is important here.
+	 */
 	devc->address = response->address;
 	fw_major = response->data[6];
 	fw_minor = response->data[5];
