@@ -49,9 +49,9 @@ SR_PRIV const char *itech_it8500_mode_to_string(enum itech_it8500_modes mode)
 		return "CW";
 	case CR:
 		return "CR";
+	default:
+		return "Unknown";
 	}
-
-	return "Unknown";
 }
 
 SR_PRIV int itech_it8500_string_to_mode(const char *modename,

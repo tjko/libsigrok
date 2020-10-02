@@ -212,6 +212,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	cmd->address = devc->address;
 	cmd->command = CMD_GET_BARCODE_INFO;
 	if (itech_it8500_send_cmd(serial, cmd, &response) == SR_OK) {
+		/* TODO Reduce the amount of magic numbers. */
 		unit_barcode = g_malloc0(23);
 		unit_barcode[22] = 0;
 		memcpy(unit_barcode, response->data, 22);

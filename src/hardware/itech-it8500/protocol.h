@@ -27,7 +27,14 @@
 
 #define LOG_PREFIX "itech-it8500"
 
+/*
+ * TODO Use a symbolic name for 22 the maximum data length, and derive
+ * the total packet length from that by adding the 3 plus 1 header/csum
+ * length instead? Is the 22 barcode length "coincidental" the same size
+ * as the maximum data, or by design?
+ */
 #define IT8500_PACKET_LEN 26
+
 #define IT8500_MAX_MODEL_NAME_LEN 5
 
 /*
@@ -35,12 +42,9 @@
  * and CMD_GET_MODE commands.
  */
 enum itech_it8500_modes {
-	CC = 0,
-	CV = 1,
-	CW = 2,
-	CR = 3,
+	CC, CV, CW, CR,
+	IT8500_MODES, /* Total count, for internal use. */
 };
-#define IT8500_MODES 4
 
 enum itech_it8500_command {
 	CMD_GET_LOAD_LIMITS = 0x01,
