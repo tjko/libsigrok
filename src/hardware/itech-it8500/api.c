@@ -18,6 +18,7 @@
  */
 
 #include <config.h>
+#include <string.h>
 #include "protocol.h"
 
 #define MIN_SAMPLE_RATE SR_HZ(1)
@@ -73,8 +74,8 @@ static const uint64_t samplerates[] = {
 	SR_HZ(60),
 };
 
-static const char* default_serial_parameters[] = {
-	"9600/8n1", /* factory default */
+static const char *default_serial_parameters[] = {
+	"9600/8n1", /* Factory default. */
 	"38400/8n1",
 	"19200/8n1",
 	"4800/8n1",
@@ -91,8 +92,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	struct sr_channel_group *cg;
 	struct sr_channel *ch;
 	struct dev_context *devc;
-	const char* custom_serial_parameters[2];
-	const char** serial_parameters;
+	const char *custom_serial_parameters[2];
+	const char **serial_parameters;
 	const char *conn, *serialcomm;
 	GSList *l;
 	struct itech_it8500_cmd_packet *cmd, *response;
@@ -147,7 +148,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	/*
 	 * Try different serial parameters in the list
-	 * until we get response (or not...)
+	 * until we get a response (or none at all).
 	 */
 	sr_info("Probing serial port: %s", conn);
 	i = 0;
@@ -174,9 +175,9 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	fw_major = response->data[6];
 	fw_minor = response->data[5];
 	response->data[5] = 0;
-	unit_model = g_strdup((const char*)&response->data[0]);
+	unit_model = g_strdup((const char *)&response->data[0]);
 	response->data[17] = 0;
-	unit_serial = g_strdup((const char*)&response->data[7]);
+	unit_serial = g_strdup((const char *)&response->data[7]);
 	sr_info("Model name: %s (v%x.%02x)", unit_model, fw_major, fw_minor);
 	sr_info("Address: %d", devc->address);
 	sr_info("Serial number: %s", unit_serial);
@@ -193,7 +194,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	 * speed / bitrate.
 	 */
 	max_samplerate = (serial->comm_params.bit_rate / 9600) * 15;
-	if (max_samplerate <  15)
+	if (max_samplerate < 15)
 		max_samplerate = 10;
 	if (max_samplerate > MAX_SAMPLE_RATE)
 		max_samplerate = MAX_SAMPLE_RATE;
@@ -239,22 +240,22 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	 * Get current status of the unit.
 	 */
 	if ((ret = itech_it8500_get_status(sdi)) != SR_OK) {
-		sr_err("Failed to get unit status: %d",  ret);
+		sr_err("Failed to get unit status: %d", ret);
 		goto error;
 	}
 	sr_info("Mode: %s", itech_it8500_mode_to_string(devc->mode));
-	sr_info("State: %s", (devc->load_on ? "ON" : "OFF"));
-	sr_info("Default sample rate: %lld Hz", devc->sample_rate);
-	sr_info("Maximum sample rate: %lld Hz",
+	sr_info("State: %s", devc->load_on ? "ON" : "OFF");
+	sr_info("Default sample rate: %" PRIu64 " Hz", devc->sample_rate);
+	sr_info("Maximum sample rate: %" PRIu64 " Hz",
 		samplerates[devc->max_sample_rate_idx]);
 
 	/*
-	 * populate data structures
+	 * Populate data structures.
 	 */
 
 	devc->fw_ver_major = fw_major;
 	devc->fw_ver_minor = fw_minor;
-	strncpy(devc->model, unit_model, sizeof(devc->model) - 1);
+	snprintf(devc->model, sizeof(devc->model), "%s", unit_model);
 	devc->max_current = max_i;
 	devc->min_voltage = min_v;
 	devc->max_voltage = max_v;
@@ -357,8 +358,8 @@ static int config_get(uint32_t key, GVariant **data,
 		break;
 #if 0
 	/*
-	 * Commented out for now as libsigrok doesn't yet have CW / CR mode
-	 * support...
+	 * Commented out for now as libsigrok doesn't yet have
+	 * CW/CR mode support.
 	 */
 	case SR_CONF_POWER:
 		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
@@ -380,8 +381,8 @@ static int config_get(uint32_t key, GVariant **data,
 		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE:
 		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
-			*data = g_variant_new_boolean(devc->demand_state
-						      & DS_OV_FLAG);
+			*data = g_variant_new_boolean(
+				devc->demand_state & DS_OV_FLAG);
 		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
 		if ((ret = itech_it8500_get_int(sdi,
@@ -411,7 +412,7 @@ static int config_get(uint32_t key, GVariant **data,
 							& DS_OT_FLAG);
 		break;
 
-	/* hardware doesnt support under voltage reporting */
+	/* Hardware doesn't support under voltage reporting. */
 	case SR_CONF_UNDER_VOLTAGE_CONDITION:
 	case SR_CONF_UNDER_VOLTAGE_CONDITION_ACTIVE:
 		*data = g_variant_new_boolean(FALSE);
@@ -551,8 +552,8 @@ static int config_list(uint32_t key, GVariant **data,
 		*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 		break;
 	case SR_CONF_SAMPLERATE:
-		*data = std_gvar_samplerates_steps(samplerates, 1 +
-				devc->max_sample_rate_idx);
+		*data = std_gvar_samplerates_steps(samplerates,
+				1 + devc->max_sample_rate_idx);
 		break;
 	case SR_CONF_REGULATION:
 		b = g_variant_builder_new(G_VARIANT_TYPE("as"));
@@ -599,8 +600,8 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	serial = sdi->conn;
 
 	ret = serial_source_add(sdi->session, serial, G_IO_IN,
-			(1000.0/devc->sample_rate), itech_it8500_receive_data,
-			(void *)sdi);
+			(1000.0 / devc->sample_rate),
+			itech_it8500_receive_data, (void *)sdi);
 	if (ret == SR_OK) {
 		sr_sw_limits_acquisition_start(&devc->limits);
 		std_session_send_df_header(sdi);
@@ -644,10 +645,7 @@ static int dev_open(struct sr_dev_inst *sdi)
 	devc->serial_open = (ret == SR_OK ? TRUE : FALSE);
 
 	if (devc->serial_open) {
-		/*
-		 * Attempt to put unit to remote control mode.
-		 */
-
+		/* Request the unit to enter remote control mode. */
 		response = NULL;
 		cmd = g_malloc0(sizeof(*cmd));
 		if (cmd) {
@@ -683,9 +681,7 @@ static int dev_close(struct sr_dev_inst *sdi)
 	cmd = g_malloc0(sizeof(*cmd));
 
 	if (cmd && devc->serial_open) {
-		/*
-		 * Attempt to put unit back to local mode.
-		 */
+		/* Request the unit to enter local control mode. */
 		cmd->address = devc->address;
 		cmd->command = CMD_SET_REMOTE_MODE;
 		cmd->data[0] = 0;

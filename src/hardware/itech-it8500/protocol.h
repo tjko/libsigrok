@@ -102,12 +102,12 @@ enum itech_it8500_command {
 };
 
 /*
- * Data structure for holding information about commands and reponses.
+ * Data structure to track commands and reponses.
  */
 struct itech_it8500_cmd_packet {
-	uint8_t command;   /* Command number */
-	uint8_t address;   /* Unit address: 0..254 [255 = broadcast] */
-	uint8_t data[22];  /* Command/Response data (0-22 bytes) */
+	uint8_t command;   /* Command number. */
+	uint8_t address;   /* Unit address: 0..254 (255 = broadcast). */
+	uint8_t data[22];  /* Command/Response data (0-22 bytes). */
 };
 
 /*
@@ -164,7 +164,7 @@ struct dev_context {
 };
 
 SR_PRIV uint8_t itech_it8500_checksum(const uint8_t *packet);
-SR_PRIV const char* itech_it8500_mode_to_string(enum itech_it8500_modes mode);
+SR_PRIV const char *itech_it8500_mode_to_string(enum itech_it8500_modes mode);
 SR_PRIV int itech_it8500_string_to_mode(const char *modename,
 		enum itech_it8500_modes *mode);
 SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,

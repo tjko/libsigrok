@@ -31,14 +31,14 @@ SR_PRIV uint8_t itech_it8500_checksum(const uint8_t *packet)
 		return 0xff;
 
 	checksum = 0;
-	p = (unsigned char*) packet;
+	p = (unsigned char *)packet;
 	for (i = 0; i < IT8500_PACKET_LEN - 1; i++)
 		checksum += *p++;
 
 	return checksum;
 }
 
-SR_PRIV const char* itech_it8500_mode_to_string(enum itech_it8500_modes mode)
+SR_PRIV const char *itech_it8500_mode_to_string(enum itech_it8500_modes mode)
 {
 	switch (mode) {
 	case CC:
@@ -90,11 +90,15 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 	if (!cmd_buf || !resp_buf || !resp)
 		return SR_ERR_MALLOC;
 
-	cmd_buf[0] = 0xaa;                             /* preamble */
-	cmd_buf[1] = cmd->address;                     /* address */
-	cmd_buf[2] = cmd->command;                     /* command */
-	memcpy(&cmd_buf[3], cmd->data, 22);            /* data */
-	cmd_buf[25] = itech_it8500_checksum(cmd_buf);  /* checksum */
+	/*
+	 * Construct request from: preamble, address, command, data,
+	 * and checksum.
+	 */
+	cmd_buf[0] = 0xaa;
+	cmd_buf[1] = cmd->address;
+	cmd_buf[2] = cmd->command;
+	memcpy(&cmd_buf[3], cmd->data, 22);
+	cmd_buf[25] = itech_it8500_checksum(cmd_buf);
 
 	sr_spew("%s: Sending command: %02x", __func__, cmd->command);
 	ret = serial_write_blocking(serial, cmd_buf, IT8500_PACKET_LEN,
@@ -172,9 +176,7 @@ SR_PRIV void itech_it8500_status_change(const struct sr_dev_inst *sdi,
 	gboolean b;
 	const char *mode;
 
-	/*
-	 * Check for unit status changes and send meta frames...
-	 */
+	/* Check for unit status changes and send meta frames. */
 	if ((old_os & OS_OUT_FLAG) != (new_os & OS_OUT_FLAG)) {
 		b = new_os & OS_OUT_FLAG;
 		sr_session_send_meta(sdi, SR_CONF_ENABLED,
@@ -260,7 +262,7 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 			itech_it8500_mode_to_string(mode),
 			operation_state, demand_state);
 
-		/* check for status change only after scan() complete */
+		/* Check for status change only after scan() has completed. */
 		if (sdi->model) {
 			itech_it8500_status_change(sdi, devc->operation_state,
 				operation_state, devc->demand_state,
