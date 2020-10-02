@@ -101,7 +101,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	char *unit_model, *unit_serial, *unit_barcode;
 	double max_i, max_v, min_v, max_p, max_r, min_r;
 	uint64_t max_samplerate;
-	uint32_t u;
+	size_t u;
 	int ret, i;
 
 	sr_spew("%s(%p,%p): called", __func__, di, options);
@@ -193,7 +193,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	 * Calculate maxium "safe" sample rate based on serial connection
 	 * speed / bitrate.
 	 */
-	max_samplerate = (serial->comm_params.bit_rate / 9600) * 15;
+	max_samplerate = serial->comm_params.bit_rate * 15 / 9600;
 	if (max_samplerate < 15)
 		max_samplerate = 10;
 	if (max_samplerate > MAX_SAMPLE_RATE)

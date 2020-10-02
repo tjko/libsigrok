@@ -214,8 +214,8 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 	struct itech_it8500_cmd_packet *cmd;
 	struct itech_it8500_cmd_packet *resp;
 	double voltage, current, power;
-	unsigned char operation_state;
-	unsigned int demand_state;
+	uint8_t operation_state;
+	uint16_t demand_state;
 	enum itech_it8500_modes mode;
 	gboolean load_on;
 	int ret;

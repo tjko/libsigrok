@@ -150,7 +150,7 @@ struct dev_context {
 	double max_power;
 	double min_resistance;
 	double max_resistance;
-	uint32_t max_sample_rate_idx;
+	size_t max_sample_rate_idx;
 
 	double voltage;
 	double current;
