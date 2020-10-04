@@ -212,10 +212,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	cmd->address = devc->address;
 	cmd->command = CMD_GET_BARCODE_INFO;
 	if (itech_it8500_send_cmd(serial, cmd, &response) == SR_OK) {
-		/* TODO Reduce the amount of magic numbers. */
-		unit_barcode = g_malloc0(23);
-		unit_barcode[22] = 0;
-		memcpy(unit_barcode, response->data, 22);
+		unit_barcode = g_malloc0(IT8500_DATA_LEN + 1);
+		memcpy(unit_barcode, response->data, IT8500_DATA_LEN);
 		sr_info("Barcode: %s", response->data);
 		g_free(unit_barcode);
 	}
@@ -642,14 +640,14 @@ static int dev_open(struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 	serial = sdi->conn;
-	ret = std_serial_dev_open(sdi);
-	devc->serial_open = (ret == SR_OK ? TRUE : FALSE);
 
-	if (devc->serial_open) {
+	ret = std_serial_dev_open(sdi);
+	if (ret == SR_OK) {
 		/* Request the unit to enter remote control mode. */
 		response = NULL;
 		cmd = g_malloc0(sizeof(*cmd));
 		if (cmd) {
+			cmd->address = devc->address;
 			cmd->command = CMD_SET_REMOTE_MODE;
 			cmd->data[0] = 1;
 			res = itech_it8500_send_cmd(serial, cmd, &response);
@@ -680,15 +678,14 @@ static int dev_close(struct sr_dev_inst *sdi)
 	serial = sdi->conn;
 	response = NULL;
 	cmd = g_malloc0(sizeof(*cmd));
-
-	if (cmd && devc->serial_open) {
+	if (cmd) {
 		/* Request the unit to enter local control mode. */
 		cmd->address = devc->address;
 		cmd->command = CMD_SET_REMOTE_MODE;
 		cmd->data[0] = 0;
 		ret = itech_it8500_send_cmd(serial, cmd, &response);
 		if (ret != SR_OK)
-			sr_err("Failed to set unit back to local mode: %d",
+			sr_dbg("Failed to set unit back to local mode: %d",
 				ret);
 	}
 
@@ -696,7 +693,6 @@ static int dev_close(struct sr_dev_inst *sdi)
 		g_free(cmd);
 	if (response)
 		g_free(response);
-	devc->serial_open = FALSE;
 
 	return std_serial_dev_close(sdi);
 }

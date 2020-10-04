@@ -28,21 +28,32 @@
 #define LOG_PREFIX "itech-it8500"
 
 /*
- * TODO Use a symbolic name for 22 the maximum data length, and derive
- * the total packet length from that by adding the 3 plus 1 header/csum
- * length instead? Is the 22 barcode length "coincidental" the same size
- * as the maximum data, or by design?
+ * Unit uses 26 byte binary packets for communications.
+ * Packets have fixed format:
+ *
+ * Offset|Length|Description
+ * ------|------|-------------------------------------
+ *     0 |    1 | Preable (always set to 0xAA).
+ *     1 |    1 | Unit Address (0-254, 255=broadcast).
+ *     2 |    1 | Command number.
+ *     3 |   22 | Variable data.
+ *    25 |    1 | Parity code (checksum).
  */
-#define IT8500_PACKET_LEN 26
+#define IT8500_HEADER_LEN 3
+#define IT8500_DATA_LEN 22
+#define IT8500_PACKET_LEN (IT8500_HEADER_LEN + IT8500_DATA_LEN + 1)
 
 #define IT8500_MAX_MODEL_NAME_LEN 5
 
 /*
- * These map directly to mode numbers used by CMD_SET_MODE
+ * Operating modes. These map directly to mode numbers used in CMD_SET_MODE
  * and CMD_GET_MODE commands.
  */
 enum itech_it8500_modes {
-	CC, CV, CW, CR,
+	CC = 0,
+	CV = 1,
+	CW = 2,
+	CR = 3,
 	IT8500_MODES, /* Total count, for internal use. */
 };
 
@@ -109,9 +120,9 @@ enum itech_it8500_command {
  * Data structure to track commands and reponses.
  */
 struct itech_it8500_cmd_packet {
-	uint8_t command;   /* Command number. */
-	uint8_t address;   /* Unit address: 0..254 (255 = broadcast). */
-	uint8_t data[22];  /* Command/Response data (0-22 bytes). */
+	uint8_t command; /* Command number. */
+	uint8_t address; /* Unit address: 0..254 (255 = broadcast). */
+	uint8_t data[IT8500_DATA_LEN]; /* Command/Response data. */
 };
 
 /*
@@ -159,7 +170,6 @@ struct dev_context {
 	uint16_t demand_state;
 	enum itech_it8500_modes mode;
 	gboolean load_on;
-	gboolean serial_open;
 
 	uint64_t sample_rate;
 	struct sr_sw_limits limits;

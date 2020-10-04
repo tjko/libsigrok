@@ -97,14 +97,14 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 	cmd_buf[0] = 0xaa;
 	cmd_buf[1] = cmd->address;
 	cmd_buf[2] = cmd->command;
-	memcpy(&cmd_buf[3], cmd->data, 22);
-	cmd_buf[25] = itech_it8500_checksum(cmd_buf);
+	memcpy(&cmd_buf[3], cmd->data, IT8500_DATA_LEN);
+	cmd_buf[IT8500_PACKET_LEN - 1] = itech_it8500_checksum(cmd_buf);
 
 	sr_spew("%s: Sending command: %02x", __func__, cmd->command);
 	ret = serial_write_blocking(serial, cmd_buf, IT8500_PACKET_LEN,
 			serial_timeout(serial, IT8500_PACKET_LEN));
 	if (ret < IT8500_PACKET_LEN) {
-		sr_err("%s: Error sending command 0x%02x: %d", __func__,
+		sr_dbg("%s: Error sending command 0x%02x: %d", __func__,
 			cmd->command, ret);
 		ret = SR_ERR;
 		goto error;
@@ -120,21 +120,21 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 	}
 
 	if (resp_buf[0] != 0xaa) {
-		sr_err("%s: Invalid packet received (first byte: %02x)",
+		sr_dbg("%s: Invalid packet received (first byte: %02x)",
 			__func__, resp_buf[0]);
 		goto error;
 	}
 
 	checksum = itech_it8500_checksum(resp_buf);
 	if (resp_buf[25] != checksum) {
-		sr_err("%s: Invalid packet received: checksum mismatch",
+		sr_dbg("%s: Invalid packet received: checksum mismatch",
 			__func__);
 		goto error;
 	}
 
 	resp->address = resp_buf[1];
 	resp->command = resp_buf[2];
-	memcpy(resp->data, &resp_buf[3], 22);
+	memcpy(resp->data, &resp_buf[3], IT8500_DATA_LEN);
 	sr_spew("%s: Response packet received: cmd=%02x", __func__,
 		resp->command);
 
