@@ -109,6 +109,51 @@ static const struct channel_spec dg832_channels[] = {
 	{ "CH2",  ARRAY_AND_SIZE(dg830_waveforms) },
 };
 
+static const struct waveform_spec dg952_waveforms[] = {
+	{ "SIN",   WF_SINE,     1.0E-6,  50.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "SQU",   WF_SQUARE,   1.0E-6,  15.0E+6, 1.0E-6, WAVEFORM_DEFAULT | WFO_DUTY_CYCLE },
+	{ "RAMP",  WF_RAMP,     1.0E-6,   1.5E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "PULSE", WF_PULSE,    1.0E-6,  15.0E+6, 1.0E-6, WAVEFORM_DEFAULT | WFO_DUTY_CYCLE },
+	{ "USER",  WF_ARB,      1.0E-6,  15.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "NOISE", WF_NOISE,  100.0E+6, 100.0E+6, 0.0E-0, WFO_AMPLITUDE | WFO_OFFSET },
+	{ "DC",    WF_DC,       0.0E-0,   0.0E+0, 0.0E-0, WFO_OFFSET },
+};
+
+static const struct channel_spec dg952_channels[] = {
+	{ "CH1",  ARRAY_AND_SIZE(dg952_waveforms) },
+	{ "CH2",  ARRAY_AND_SIZE(dg952_waveforms) },
+};
+
+static const struct waveform_spec dg972_waveforms[] = {
+	{ "SIN",   WF_SINE,     1.0E-6,  70.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "SQU",   WF_SQUARE,   1.0E-6,  20.0E+6, 1.0E-6, WAVEFORM_DEFAULT | WFO_DUTY_CYCLE },
+	{ "RAMP",  WF_RAMP,     1.0E-6,   1.5E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "PULSE", WF_PULSE,    1.0E-6,  20.0E+6, 1.0E-6, WAVEFORM_DEFAULT | WFO_DUTY_CYCLE },
+	{ "USER",  WF_ARB,      1.0E-6,  20.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "NOISE", WF_NOISE,  100.0E+6, 100.0E+6, 0.0E-0, WFO_AMPLITUDE | WFO_OFFSET },
+	{ "DC",    WF_DC,       0.0E-0,   0.0E+0, 0.0E-0, WFO_OFFSET },
+};
+
+static const struct channel_spec dg972_channels[] = {
+	{ "CH1",  ARRAY_AND_SIZE(dg972_waveforms) },
+	{ "CH2",  ARRAY_AND_SIZE(dg972_waveforms) },
+};
+
+static const struct waveform_spec dg992_waveforms[] = {
+	{ "SIN",   WF_SINE,     1.0E-6, 100.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "SQU",   WF_SQUARE,   1.0E-6,  25.0E+6, 1.0E-6, WAVEFORM_DEFAULT | WFO_DUTY_CYCLE },
+	{ "RAMP",  WF_RAMP,     1.0E-6,   2.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "PULSE", WF_PULSE,    1.0E-6,  25.0E+6, 1.0E-6, WAVEFORM_DEFAULT | WFO_DUTY_CYCLE },
+	{ "USER",  WF_ARB,      1.0E-6,  25.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
+	{ "NOISE", WF_NOISE,  100.0E+6, 100.0E+6, 0.0E-0, WFO_AMPLITUDE | WFO_OFFSET },
+	{ "DC",    WF_DC,       0.0E-0,   0.0E+0, 0.0E-0, WFO_OFFSET },
+};
+
+static const struct channel_spec dg992_channels[] = {
+	{ "CH1",  ARRAY_AND_SIZE(dg992_waveforms) },
+	{ "CH2",  ARRAY_AND_SIZE(dg992_waveforms) },
+};
+
 static const struct waveform_spec dg1022z_waveforms[] = {
 	{ "SIN",   WF_SINE,     1.0E-6,  25.0E+6, 1.0E-6, WAVEFORM_DEFAULT },
 	{ "SQU",   WF_SQUARE,   1.0E-6,  25.0E+6, 1.0E-6, WAVEFORM_DEFAULT | WFO_DUTY_CYCLE },
@@ -217,6 +262,24 @@ static const struct device_spec device_models[] = {
 		ARRAY_AND_SIZE(dg1000z_devopts),
 		ARRAY_AND_SIZE(dg1000z_devopts_cg),
 		ARRAY_AND_SIZE(dg832_channels),
+		cmdset_dg1000z,
+	},
+	{ "Rigol Technologies", "DG952",
+		ARRAY_AND_SIZE(dg1000z_devopts),
+		ARRAY_AND_SIZE(dg1000z_devopts_cg),
+		ARRAY_AND_SIZE(dg952_channels),
+		cmdset_dg1000z,
+	},
+	{ "Rigol Technologies", "DG972",
+		ARRAY_AND_SIZE(dg1000z_devopts),
+		ARRAY_AND_SIZE(dg1000z_devopts_cg),
+		ARRAY_AND_SIZE(dg972_channels),
+		cmdset_dg1000z,
+	},
+	{ "Rigol Technologies", "DG992",
+		ARRAY_AND_SIZE(dg1000z_devopts),
+		ARRAY_AND_SIZE(dg1000z_devopts_cg),
+		ARRAY_AND_SIZE(dg992_channels),
 		cmdset_dg1000z,
 	},
 	{ "Rigol Technologies", "DG1022Z",
