@@ -48,6 +48,9 @@ static const uint32_t devopts_cg[] = {
 	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_CURRENT | SR_CONF_GET,
 	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_POWER | SR_CONF_GET,
+	SR_CONF_POWER_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_RESISTANCE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | SR_CONF_GET,
 	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
 	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
@@ -105,8 +108,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	size_t u, i;
 	int ret;
-
-	sr_spew("%s(%p,%p): called", __func__, di, options);
 
 	cmd = g_malloc0(sizeof(*cmd));
 	devc = g_malloc0(sizeof(*devc));
@@ -307,9 +308,10 @@ static int config_get(uint32_t key, GVariant **data,
 	struct dev_context *devc;
 	const struct sr_key_info *kinfo;
 	const char *mode;
-	int ret, ivalue;
+	int ret, ival;
+	gboolean bval;
 
-	sr_spew("%s(%u,%p,%p,%p): called", __func__, key, data, sdi, cg);
+	(void)cg;
 
 	if (!data || !sdi)
 		return SR_ERR_ARG;
@@ -327,89 +329,92 @@ static int config_get(uint32_t key, GVariant **data,
 		*data = g_variant_new_uint64(devc->sample_rate);
 		break;
 	case SR_CONF_ENABLED:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK)
 			*data = g_variant_new_boolean(devc->load_on);
 		break;
 	case SR_CONF_REGULATION:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK) {
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK) {
 			mode = itech_it8500_mode_to_string(devc->mode);
 			*data = g_variant_new_string(mode);
 		}
 		break;
 	case SR_CONF_VOLTAGE:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK)
 			*data = g_variant_new_double(devc->voltage);
 		break;
 	case SR_CONF_VOLTAGE_TARGET:
-		if ((ret = itech_it8500_get_int(sdi, CMD_GET_CV_VOLTAGE,
-				&ivalue)) == SR_OK)
-			*data = g_variant_new_double((double)ivalue / 1000.0);
+		ret = itech_it8500_get_int(sdi, CMD_GET_CV_VOLTAGE, &ival);
+		if (ret == SR_OK)
+			*data = g_variant_new_double((double)ival / 1000.0);
 		break;
 	case SR_CONF_CURRENT:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK)
 			*data = g_variant_new_double(devc->current);
 		break;
 	case SR_CONF_CURRENT_LIMIT:
-		if ((ret = itech_it8500_get_int(sdi, CMD_GET_CC_CURRENT,
-				&ivalue)) == SR_OK)
-			*data = g_variant_new_double((double)ivalue / 10000.0);
+		ret = itech_it8500_get_int(sdi, CMD_GET_CC_CURRENT, &ival);
+		if (ret == SR_OK)
+			*data = g_variant_new_double((double)ival / 10000.0);
 		break;
-#if 0
-	/*
-	 * Commented out for now as libsigrok doesn't yet have
-	 * CW/CR mode support.
-	 */
 	case SR_CONF_POWER:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK)
 			*data = g_variant_new_double(devc->power);
 		break;
-	case SR_CONF_POWER_LIMIT:
-		if ((ret = itech_it8500_get_int(sdi, CMD_GET_CW_POWER,
-				&ivalue)) == SR_OK)
-			*data = g_variant_new_double((double)ivalue / 1000.0);
+	case SR_CONF_POWER_TARGET:
+		ret = itech_it8500_get_int(sdi, CMD_GET_CW_POWER, &ival);
+		if (ret == SR_OK)
+			*data = g_variant_new_double((double)ival / 1000.0);
 		break;
 	case SR_CONF_RESISTANCE_TARGET:
-		if ((ret = itech_it8500_get_int(sdi,
-				CMD_GET_CR_RESISTANCE, &ivalue)) == SR_OK)
-			*data = g_variant_new_double((double)ivalue / 1000.0);
+		ret = itech_it8500_get_int(sdi, CMD_GET_CR_RESISTANCE, &ival);
+		if (ret == SR_OK)
+			*data = g_variant_new_double((double)ival / 1000.0);
 		break;
-#endif
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
 		*data = g_variant_new_boolean(TRUE);
 		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
-			*data = g_variant_new_boolean(
-				devc->demand_state & DS_OV_FLAG);
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK) {
+			bval = devc->demand_state & DS_OV_FLAG;
+			*data = g_variant_new_boolean(bval);
+		}
 		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
-		if ((ret = itech_it8500_get_int(sdi,
-				CMD_GET_MAX_VOLTAGE, &ivalue)) == SR_OK)
-			*data = g_variant_new_double((double)ivalue / 1000.0);
+		ret = itech_it8500_get_int(sdi, CMD_GET_MAX_VOLTAGE, &ival);
+		if (ret == SR_OK)
+			*data = g_variant_new_double((double)ival / 1000.0);
 		break;
 	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		*data = g_variant_new_boolean(TRUE);
 		break;
 	case SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
-			*data = g_variant_new_boolean(devc->demand_state
-							& DS_OC_FLAG);
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK) {
+			bval = devc->demand_state & DS_OC_FLAG;
+			*data = g_variant_new_boolean(bval);
+		}
 		break;
 	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
-		if ((ret = itech_it8500_get_int(sdi, CMD_GET_MAX_CURRENT,
-				&ivalue)) == SR_OK)
-			*data = g_variant_new_double((double)ivalue / 10000.0);
+		ret = itech_it8500_get_int(sdi, CMD_GET_MAX_CURRENT, &ival);
+		if (ret == SR_OK)
+			*data = g_variant_new_double((double)ival / 10000.0);
 		break;
-
 	case SR_CONF_OVER_TEMPERATURE_PROTECTION:
 		*data = g_variant_new_boolean(TRUE);
 		break;
 	case SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE:
-		if ((ret = itech_it8500_get_status(sdi)) == SR_OK)
-			*data = g_variant_new_boolean(devc->demand_state
-							& DS_OT_FLAG);
+		ret = itech_it8500_get_status(sdi);
+		if (ret == SR_OK) {
+			bval = devc->demand_state & DS_OT_FLAG;
+			*data = g_variant_new_boolean(bval);
+		}
 		break;
-
 	/* Hardware doesn't support under voltage reporting. */
 	case SR_CONF_UNDER_VOLTAGE_CONDITION:
 	case SR_CONF_UNDER_VOLTAGE_CONDITION_ACTIVE:
@@ -418,7 +423,6 @@ static int config_get(uint32_t key, GVariant **data,
 	case SR_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD:
 		*data = g_variant_new_double(0.0);
 		break;
-
 	default:
 		sr_dbg("%s: Unsupported key: %u (%s)", __func__, key,
 			kinfo ? kinfo->name : "unknown");
@@ -440,7 +444,7 @@ static int config_set(uint32_t key, GVariant *data,
 	uint64_t new_sr;
 	const char *s;
 
-	sr_spew("%s(%u,%p,%p,%p): called", __func__, key, data, sdi, cg);
+	(void)cg;
 
 	if (!data || !sdi)
 		return SR_ERR_ARG;
@@ -492,6 +496,16 @@ static int config_set(uint32_t key, GVariant *data,
 		ivalue = g_variant_get_double(data) * 10000.0;
 		WL32(&cmd->data[0], ivalue);
 		break;
+	case SR_CONF_POWER_TARGET:
+		cmd->command = CMD_SET_CW_POWER;
+		ivalue = g_variant_get_double(data) * 1000.0;
+		WL32(&cmd->data[0], ivalue);
+		break;
+	case SR_CONF_RESISTANCE_TARGET:
+		cmd->command = CMD_SET_CR_RESISTANCE;
+		ivalue = g_variant_get_double(data) * 1000.0;
+		WL32(&cmd->data[0], ivalue);
+		break;
 	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
 		cmd->command = CMD_SET_MAX_VOLTAGE;
 		ivalue = g_variant_get_double(data) * 1000.0;
@@ -527,8 +541,6 @@ static int config_list(uint32_t key, GVariant **data,
 	const struct dev_context *devc;
 	const struct sr_key_info *kinfo;
 	GVariantBuilder *b;
-
-	sr_spew("%s(%u,%p,%p,%p): called", __func__, key, data, sdi, cg);
 
 	devc = sdi ? sdi->priv : NULL;
 	if (!data)
@@ -568,6 +580,17 @@ static int config_list(uint32_t key, GVariant **data,
 			return SR_ERR_ARG;
 		*data = std_gvar_min_max_step(0.0, devc->max_current, 0.001);
 		break;
+	case SR_CONF_POWER_TARGET:
+		if (!devc)
+			return SR_ERR_ARG;
+		*data = std_gvar_min_max_step(0.0, devc->max_power, 0.01);
+		break;
+	case SR_CONF_RESISTANCE_TARGET:
+		if (!devc)
+			return SR_ERR_ARG;
+		*data = std_gvar_min_max_step(devc->min_resistance,
+				devc->max_resistance, 0.01);
+		break;
 
 	default:
 		sr_dbg("%s: Unsupported key: %u (%s)", __func__, key,
@@ -583,8 +606,6 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	struct dev_context *devc;
 	struct sr_serial_dev_inst *serial;
 	int ret;
-
-	sr_spew("%s(%p): called", __func__, sdi);
 
 	if (!sdi)
 		return SR_ERR_ARG;
@@ -607,8 +628,6 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 {
 	struct sr_serial_dev_inst *serial;
 
-	sr_spew("%s(%p): called", __func__, sdi);
-
 	if (!sdi)
 		return SR_ERR_ARG;
 
@@ -625,8 +644,6 @@ static int dev_open(struct sr_dev_inst *sdi)
 	struct dev_context *devc;
 	struct itech_it8500_cmd_packet *cmd, *response;
 	int ret, res;
-
-	sr_spew("%s(%p): called", __func__, sdi);
 
 	if (!sdi)
 		return SR_ERR_ARG;
@@ -658,8 +675,6 @@ static int dev_close(struct sr_dev_inst *sdi)
 	struct itech_it8500_cmd_packet *cmd, *response;
 	int ret;
 
-	sr_spew("%s(%p): called", __func__, sdi);
-
 	if (!sdi)
 		return SR_ERR_ARG;
 
@@ -687,8 +702,6 @@ static void dev_clear_callback(void *priv)
 {
 	struct dev_context *devc;
 
-	sr_spew("%s(%p): called", __func__, priv);
-
 	if (!priv)
 		return;
 
@@ -698,8 +711,6 @@ static void dev_clear_callback(void *priv)
 
 static int dev_clear(const struct sr_dev_driver *di)
 {
-	sr_spew("%s(%p): called", __func__, di);
-
 	return std_dev_clear_with_callback(di, dev_clear_callback);
 }
 

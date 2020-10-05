@@ -138,13 +138,13 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 
 	if (resp->command == CMD_RESPONSE) {
 		if (resp->data[0] != IT8500_COMMAND_SUCCESSFUL) {
-			sr_err("%s: Command (%02x) failed: status=%02x",
+			sr_dbg("%s: Command (%02x) failed: status=%02x",
 				__func__, cmd->command, resp->data[0]);
 			goto error;
 		}
 	} else {
 		if (resp->command != cmd->command) {
-			sr_err("%s: Invalid response received: %02x"
+			sr_dbg("%s: Invalid response received: %02x"
 				" (expected: %02x)",
 				__func__, resp->command, cmd->command);
 			goto error;
@@ -372,9 +372,6 @@ SR_PRIV int itech_it8500_receive_data(int fd, int revents, void *cb_data)
 	struct sr_dev_inst *sdi;
 	struct dev_context *devc;
 	GSList *l;
-
-	sr_spew("%s(%d,%d,%p): called (%d)", __func__, fd, revents,
-		cb_data, G_IO_IN);
 
 	(void)fd;
 	(void)revents;

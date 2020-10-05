@@ -54,8 +54,9 @@
 #define IT8500_INVALID_COMMAND    0xc0
 
 /*
- * Operating modes. These map directly to mode numbers used in CMD_SET_MODE
- * and CMD_GET_MODE commands.
+ * Operating modes.
+ * Note! These map directly to mode numbers used in CMD_SET_MODE
+ * and CMD_GET_MODE commands, so values are manually defined below.
  */
 enum itech_it8500_modes {
 	CC = 0,
@@ -73,7 +74,7 @@ enum itech_it8500_command {
 	CMD_GET_VON_MODE = 0x0f,
 	CMD_SET_VON_VALUE = 0x10,
 	CMD_GET_VON_VALUE = 0x11,
-	CMD_RESPONSE = 0x12, /* Response to command not returning  any data. */
+	CMD_RESPONSE = 0x12, /* Response to commands not returning any data. */
 	CMD_SET_REMOTE_MODE = 0x20,
 	CMD_LOAD_ON_OFF = 0x21,
 	CMD_SET_MAX_VOLTAGE = 0x22,
