@@ -98,9 +98,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	GSList *l;
 	struct itech_it8500_cmd_packet *cmd, *response;
 	uint8_t fw_major, fw_minor;
+	const uint8_t *p;
 	char *unit_model, *unit_serial, *unit_barcode;
 	double max_i, max_v, min_v, max_p, max_r, min_r;
 	uint64_t max_samplerate;
+
 	size_t u, i;
 	int ret;
 
@@ -223,12 +225,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	cmd->command = CMD_GET_LOAD_LIMITS;
 	if (itech_it8500_send_cmd(serial, cmd, &response) != SR_OK)
 		goto error;
-	max_i = RL32(&response->data[0]) / 10000.0;
-	max_v = RL32(&response->data[4]) / 1000.0;
-	min_v = RL32(&response->data[8]) / 1000.0;
-	max_p = RL32(&response->data[12]) / 1000.0;
-	max_r = RL32(&response->data[16]) / 1000.0;
-	min_r = RL16(&response->data[20]) / 1000.0;
+	p = response->data;
+	max_i = read_u32le_inc(&p) / 10000.0;
+	max_v = read_u32le_inc(&p) / 1000.0;
+	min_v = read_u32le_inc(&p) / 1000.0;
+	max_p = read_u32le_inc(&p) / 1000.0;
+	max_r = read_u32le_inc(&p) / 1000.0;
+	min_r = read_u16le_inc(&p) / 1000.0;
 	sr_info("Max current: %.0f A", max_i);
 	sr_info("Max power: %.0f W", max_p);
 	sr_info("Voltage range: %.1f - %.1f V", min_v, max_v);
@@ -276,6 +279,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	ch = sr_channel_new(sdi, 2, SR_CHANNEL_ANALOG, TRUE, "P1");
 	cg->channels = g_slist_append(cg->channels, ch);
 
+	g_free(cmd);
 	g_free(response);
 	serial_close(serial);
 
@@ -285,12 +289,9 @@ error:
 	g_free(cmd);
 	g_free(devc);
 	g_free(sdi);
-	if (response)
-		g_free(response);
-	if (unit_model)
-		g_free(unit_model);
-	if (unit_serial)
-		g_free(unit_serial);
+	g_free(response);
+	g_free(unit_model);
+	g_free(unit_serial);
 	if (serial) {
 		serial_close(serial);
 		sr_serial_dev_inst_free(serial);
@@ -314,9 +315,8 @@ static int config_get(uint32_t key, GVariant **data,
 		return SR_ERR_ARG;
 
 	devc = sdi->priv;
-	ret = SR_OK;
-
 	kinfo = sr_key_info_get(SR_KEY_CONFIG, key);
+	ret = SR_OK;
 
 	switch (key) {
 	case SR_CONF_LIMIT_SAMPLES:
@@ -420,8 +420,8 @@ static int config_get(uint32_t key, GVariant **data,
 		break;
 
 	default:
-		sr_dbg("%s: Unsupported key: %d (%s)", __func__, key,
-			(kinfo ? kinfo->name : "unknown"));
+		sr_dbg("%s: Unsupported key: %u (%s)", __func__, key,
+			kinfo ? kinfo->name : "unknown");
 		ret = SR_ERR_NA;
 	}
 
@@ -433,7 +433,6 @@ static int config_set(uint32_t key, GVariant *data,
 		const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
 	struct itech_it8500_cmd_packet *cmd, *response;
 	const struct sr_key_info *kinfo;
 	enum itech_it8500_modes mode;
@@ -451,7 +450,6 @@ static int config_set(uint32_t key, GVariant *data,
 		return SR_ERR_MALLOC;
 
 	devc = sdi->priv;
-	serial = sdi->conn;
 	response = NULL;
 	ret = SR_OK;
 
@@ -506,21 +504,18 @@ static int config_set(uint32_t key, GVariant *data,
 		break;
 
 	default:
-		sr_dbg("%s: Unsupported key: %d (%s)", __func__, key,
-			(kinfo ? kinfo->name : "unknown"));
+		sr_dbg("%s: Unsupported key: %u (%s)", __func__, key,
+			kinfo ? kinfo->name : "unknown");
 		ret = SR_ERR_NA;
 		goto done;
 	}
 
 	cmd->address = devc->address;
-	g_mutex_lock(&devc->mutex);
-	ret = itech_it8500_send_cmd(serial, cmd, &response);
-	g_mutex_unlock(&devc->mutex);
+	ret = itech_it8500_cmd(sdi, cmd, &response);
 
 done:
 	g_free(cmd);
-	if (response)
-		g_free(response);
+	g_free(response);
 
 	return ret;
 }
@@ -535,13 +530,13 @@ static int config_list(uint32_t key, GVariant **data,
 
 	sr_spew("%s(%u,%p,%p,%p): called", __func__, key, data, sdi, cg);
 
-	devc = (sdi ? sdi->priv : NULL);
+	devc = sdi ? sdi->priv : NULL;
 	if (!data)
 		return SR_ERR_ARG;
 
 	if (!cg)
-		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts,
-				devopts);
+		return STD_CONFIG_LIST(key, data, sdi, cg,
+			scanopts, drvopts, devopts);
 
 	kinfo = sr_key_info_get(SR_KEY_CONFIG, key);
 
@@ -575,8 +570,8 @@ static int config_list(uint32_t key, GVariant **data,
 		break;
 
 	default:
-		sr_dbg("%s: Unsupported key: %d (%s)", __func__, key,
-			(kinfo ? kinfo->name : "unknown"));
+		sr_dbg("%s: Unsupported key: %u (%s)", __func__, key,
+			kinfo ? kinfo->name : "unknown");
 		return SR_ERR_NA;
 	}
 
@@ -628,7 +623,6 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 static int dev_open(struct sr_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
 	struct itech_it8500_cmd_packet *cmd, *response;
 	int ret, res;
 
@@ -638,8 +632,6 @@ static int dev_open(struct sr_dev_inst *sdi)
 		return SR_ERR_ARG;
 
 	devc = sdi->priv;
-	serial = sdi->conn;
-
 	ret = std_serial_dev_open(sdi);
 	if (ret == SR_OK) {
 		/* Request the unit to enter remote control mode. */
@@ -649,12 +641,11 @@ static int dev_open(struct sr_dev_inst *sdi)
 			cmd->address = devc->address;
 			cmd->command = CMD_SET_REMOTE_MODE;
 			cmd->data[0] = 1;
-			res = itech_it8500_send_cmd(serial, cmd, &response);
+			res = itech_it8500_cmd(sdi, cmd, &response);
 			if (res != SR_OK)
-				sr_err("Failed to set unit to remote mode");
+				sr_dbg("Failed to set unit to remote mode");
 			g_free(cmd);
-			if (response)
-				g_free(response);
+			g_free(response);
 		}
 	}
 
@@ -664,7 +655,6 @@ static int dev_open(struct sr_dev_inst *sdi)
 static int dev_close(struct sr_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
 	struct itech_it8500_cmd_packet *cmd, *response;
 	int ret;
 
@@ -674,7 +664,6 @@ static int dev_close(struct sr_dev_inst *sdi)
 		return SR_ERR_ARG;
 
 	devc = sdi->priv;
-	serial = sdi->conn;
 	response = NULL;
 	cmd = g_malloc0(sizeof(*cmd));
 	if (cmd) {
@@ -682,16 +671,14 @@ static int dev_close(struct sr_dev_inst *sdi)
 		cmd->address = devc->address;
 		cmd->command = CMD_SET_REMOTE_MODE;
 		cmd->data[0] = 0;
-		ret = itech_it8500_send_cmd(serial, cmd, &response);
+		ret = itech_it8500_cmd(sdi, cmd, &response);
 		if (ret != SR_OK)
 			sr_dbg("Failed to set unit back to local mode: %d",
 				ret);
 	}
 
-	if (cmd)
-		g_free(cmd);
-	if (response)
-		g_free(response);
+	g_free(cmd);
+	g_free(response);
 
 	return std_serial_dev_close(sdi);
 }

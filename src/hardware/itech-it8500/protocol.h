@@ -43,7 +43,15 @@
 #define IT8500_DATA_LEN 22
 #define IT8500_PACKET_LEN (IT8500_HEADER_LEN + IT8500_DATA_LEN + 1)
 
+#define IT8500_PREAMBLE 0xaa
 #define IT8500_MAX_MODEL_NAME_LEN 5
+
+/* Status packet status byte values. */
+#define IT8500_COMMAND_SUCCESSFUL 0x80
+#define IT8500_INVALID_CHECKSUM   0x90
+#define IT8500_INVALID_PARAMETER  0xa0
+#define IT8500_UNKNOWN_COMMAND    0xb0
+#define IT8500_INVALID_COMMAND    0xc0
 
 /*
  * Operating modes. These map directly to mode numbers used in CMD_SET_MODE
@@ -65,7 +73,7 @@ enum itech_it8500_command {
 	CMD_GET_VON_MODE = 0x0f,
 	CMD_SET_VON_VALUE = 0x10,
 	CMD_GET_VON_VALUE = 0x11,
-	RESPONSE = 0x12,  /* Sent as response to command not returning data. */
+	CMD_RESPONSE = 0x12, /* Response to command not returning  any data. */
 	CMD_SET_REMOTE_MODE = 0x20,
 	CMD_LOAD_ON_OFF = 0x21,
 	CMD_SET_MAX_VOLTAGE = 0x22,
@@ -184,6 +192,9 @@ SR_PRIV int itech_it8500_string_to_mode(const char *modename,
 SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 		struct itech_it8500_cmd_packet *cmd,
 		struct itech_it8500_cmd_packet **response);
+SR_PRIV int itech_it8500_cmd(const struct sr_dev_inst *sdi,
+		struct itech_it8500_cmd_packet *cmd,
+		struct itech_it8500_cmd_packet **response);
 SR_PRIV void itech_it8500_status_change(const struct sr_dev_inst *sdi,
 		uint8_t old_op, uint8_t new_op,
 		uint16_t old_de, uint16_t new_de,
@@ -192,7 +203,7 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi);
 SR_PRIV int itech_it8500_get_int(const struct sr_dev_inst *sdi,
 		enum itech_it8500_command command, int *result);
 SR_PRIV void itech_it8500_channel_send_value(const struct sr_dev_inst *sdi,
-		struct sr_channel *ch, float value, enum sr_mq mq,
+		struct sr_channel *ch, double value, enum sr_mq mq,
 		enum sr_unit unit, int digits);
 SR_PRIV int itech_it8500_receive_data(int fd, int revents, void *cb_data);
 

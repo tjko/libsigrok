@@ -23,15 +23,15 @@
 
 SR_PRIV uint8_t itech_it8500_checksum(const uint8_t *packet)
 {
-	uint8_t *p;
+	const uint8_t *p;
 	uint8_t checksum;
-	uint8_t i;
+	size_t i;
 
 	if (!packet)
 		return 0xff;
 
 	checksum = 0;
-	p = (unsigned char *)packet;
+	p = packet;
 	for (i = 0; i < IT8500_PACKET_LEN - 1; i++)
 		checksum += *p++;
 
@@ -57,10 +57,10 @@ SR_PRIV const char *itech_it8500_mode_to_string(enum itech_it8500_modes mode)
 SR_PRIV int itech_it8500_string_to_mode(const char *modename,
 		enum itech_it8500_modes *mode)
 {
-	int i;
+	size_t i;
 	const char *s;
 
-	for(i = 0; i < IT8500_MODES; i++) {
+	for (i = 0; i < IT8500_MODES; i++) {
 		s = itech_it8500_mode_to_string(i);
 		if (strncmp(modename, s, strlen(s)) == 0) {
 			*mode = i;
@@ -75,11 +75,9 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 		struct itech_it8500_cmd_packet *cmd,
 		struct itech_it8500_cmd_packet **response)
 {
-	int ret;
-	unsigned char checksum;
 	struct itech_it8500_cmd_packet *resp;
-	uint8_t *cmd_buf, *resp_buf;
-	int read_len;
+	uint8_t *cmd_buf, *resp_buf, checksum;
+	int ret, read_len;
 
 	if (!serial || !cmd || !response)
 		return SR_ERR_ARG;
@@ -94,7 +92,7 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 	 * Construct request from: preamble, address, command, data,
 	 * and checksum.
 	 */
-	cmd_buf[0] = 0xaa;
+	cmd_buf[0] = IT8500_PREAMBLE;
 	cmd_buf[1] = cmd->address;
 	cmd_buf[2] = cmd->command;
 	memcpy(&cmd_buf[3], cmd->data, IT8500_DATA_LEN);
@@ -119,14 +117,14 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 		goto error;
 	}
 
-	if (resp_buf[0] != 0xaa) {
+	if (resp_buf[0] != IT8500_PREAMBLE) {
 		sr_dbg("%s: Invalid packet received (first byte: %02x)",
 			__func__, resp_buf[0]);
 		goto error;
 	}
 
 	checksum = itech_it8500_checksum(resp_buf);
-	if (resp_buf[25] != checksum) {
+	if (resp_buf[IT8500_PACKET_LEN - 1] != checksum) {
 		sr_dbg("%s: Invalid packet received: checksum mismatch",
 			__func__);
 		goto error;
@@ -138,8 +136,8 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 	sr_spew("%s: Response packet received: cmd=%02x", __func__,
 		resp->command);
 
-	if (resp->command == RESPONSE) {
-		if (resp->data[0] != 0x80) {
+	if (resp->command == CMD_RESPONSE) {
+		if (resp->data[0] != IT8500_COMMAND_SUCCESSFUL) {
 			sr_err("%s: Command (%02x) failed: status=%02x",
 				__func__, cmd->command, resp->data[0]);
 			goto error;
@@ -162,8 +160,29 @@ SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
 error:
 	g_free(cmd_buf);
 	g_free(resp_buf);
-	if (resp)
-		g_free(resp);
+	g_free(resp);
+
+	return ret;
+}
+
+SR_PRIV int itech_it8500_cmd(const struct sr_dev_inst *sdi,
+		struct itech_it8500_cmd_packet *cmd,
+		struct itech_it8500_cmd_packet **response)
+{
+	struct dev_context *devc;
+	struct sr_serial_dev_inst *serial;
+	int ret;
+
+	if (!sdi)
+		return SR_ERR_ARG;
+	devc = sdi->priv;
+	serial = sdi->conn;
+	if (!devc || !serial)
+		return SR_ERR_NA;
+
+	g_mutex_lock(&devc->mutex);
+	ret = itech_it8500_send_cmd(serial, cmd, response);
+	g_mutex_unlock(&devc->mutex);
 
 	return ret;
 }
@@ -173,33 +192,42 @@ SR_PRIV void itech_it8500_status_change(const struct sr_dev_inst *sdi,
 		uint16_t old_ds, uint16_t new_ds,
 		enum itech_it8500_modes old_m, enum itech_it8500_modes new_m)
 {
-	gboolean b;
 	const char *mode;
+	gboolean old, new;
 
-	/* Check for unit status changes and send meta frames. */
-	if ((old_os & OS_OUT_FLAG) != (new_os & OS_OUT_FLAG)) {
-		b = new_os & OS_OUT_FLAG;
-		sr_session_send_meta(sdi, SR_CONF_ENABLED,
-			g_variant_new_boolean(b));
-	}
-	if ((old_ds & DS_OV_FLAG) != (new_ds & DS_OV_FLAG)) {
-		b = new_ds & DS_OV_FLAG;
+	/* Check it output status has changed. */
+	old = old_os & OS_OUT_FLAG;
+	new = new_os & OS_OUT_FLAG;
+	if (old != new)
+		sr_session_send_meta(sdi,
+			SR_CONF_ENABLED,
+			g_variant_new_boolean(new));
+
+	/* Check if OVP status has changed. */
+	old = old_ds & DS_OV_FLAG;
+	new = new_ds & DS_OV_FLAG;
+	if (old != new)
 		sr_session_send_meta(sdi,
 			SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE,
-			g_variant_new_boolean(b));
-	}
-	if ((old_ds & DS_OC_FLAG) != (new_ds & DS_OC_FLAG)) {
-		b = new_ds & DS_OC_FLAG;
+			g_variant_new_boolean(new));
+
+	/* Check if OCP status has changed. */
+	old = old_ds & DS_OC_FLAG;
+	new = new_ds & DS_OC_FLAG;
+	if (old != new)
 		sr_session_send_meta(sdi,
 			SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE,
-			g_variant_new_boolean(b));
-	}
-	if ((old_ds & DS_OT_FLAG) != (new_ds & DS_OT_FLAG)) {
-		b = new_ds & DS_OT_FLAG;
+			g_variant_new_boolean(new));
+
+	/* Check if OTP status has changed. */
+	old = old_ds & DS_OT_FLAG;
+	new = new_ds & DS_OT_FLAG;
+	if (old != new)
 		sr_session_send_meta(sdi,
 			SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE,
-			g_variant_new_boolean(b));
-	}
+			g_variant_new_boolean(new));
+
+	/* Check if operating mode has changed. */
 	if (old_m != new_m) {
 		mode = itech_it8500_mode_to_string(new_m);
 		sr_session_send_meta(sdi, SR_CONF_REGULATION,
@@ -209,7 +237,6 @@ SR_PRIV void itech_it8500_status_change(const struct sr_dev_inst *sdi,
 
 SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
 	struct dev_context *devc;
 	struct itech_it8500_cmd_packet *cmd;
 	struct itech_it8500_cmd_packet *resp;
@@ -218,14 +245,14 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 	uint16_t demand_state;
 	enum itech_it8500_modes mode;
 	gboolean load_on;
+	const uint8_t *p;
 	int ret;
 
 	if (!sdi)
 		return SR_ERR_ARG;
 
 	devc = sdi->priv;
-	serial = sdi->conn;
-	if (!devc || !serial)
+	if (!devc)
 		return SR_ERR_NA;
 
 	cmd = g_malloc0(sizeof(*cmd));
@@ -235,15 +262,15 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 	cmd->command = CMD_GET_STATE;
 	resp = NULL;
 
-	g_mutex_lock(&devc->mutex);
-	ret = itech_it8500_send_cmd(serial, cmd, &resp);
-	g_mutex_unlock(&devc->mutex);
+	ret = itech_it8500_cmd(sdi, cmd, &resp);
 	if (ret == SR_OK) {
-		voltage = RL32(&resp->data[0]) / 1000.0;
-		current = RL32(&resp->data[4]) / 10000.0;
-		power = RL32(&resp->data[8]) / 1000.0;
-		operation_state = resp->data[12];
-		demand_state = RL16(&resp->data[13]);
+		p = resp->data;
+		voltage = read_u32le_inc(&p) / 1000.0;
+		current = read_u32le_inc(&p) / 10000.0;
+		power = read_u32le_inc(&p) / 1000.0;
+		operation_state = read_u8_inc(&p);
+		demand_state = read_u16le_inc(&p);
+
 		if (demand_state & DS_CC_MODE_FLAG)
 			mode = CC;
 		else if (demand_state & DS_CV_MODE_FLAG)
@@ -254,7 +281,7 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 			mode = CR;
 		else
 			mode = CC;
-		load_on = (operation_state & OS_OUT_FLAG ? TRUE : FALSE);
+		load_on = operation_state & OS_OUT_FLAG;
 
 		sr_dbg("Load status: V=%.4f, I=%.4f, P=%.3f, State=%s, "
 			"Mode=%s (op=0x%02x, demand=0x%04x)",
@@ -278,8 +305,7 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 	}
 
 	g_free(cmd);
-	if (resp)
-		g_free(resp);
+	g_free(resp);
 
 	return ret;
 }
@@ -287,7 +313,6 @@ SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi)
 SR_PRIV int itech_it8500_get_int(const struct sr_dev_inst *sdi,
 		enum itech_it8500_command command, int *result)
 {
-	struct sr_serial_dev_inst *serial;
 	struct dev_context *devc;
 	struct itech_it8500_cmd_packet *cmd;
 	struct itech_it8500_cmd_packet *resp;
@@ -296,9 +321,7 @@ SR_PRIV int itech_it8500_get_int(const struct sr_dev_inst *sdi,
 	if (!sdi || !result)
 		return SR_ERR_ARG;
 
-	serial = sdi->conn;
 	devc = sdi->priv;
-
 	cmd = g_malloc0(sizeof(*cmd));
 	if (!cmd)
 		return SR_ERR_MALLOC;
@@ -306,21 +329,18 @@ SR_PRIV int itech_it8500_get_int(const struct sr_dev_inst *sdi,
 	cmd->command = command;
 	resp = NULL;
 
-	g_mutex_lock(&devc->mutex);
-	ret = itech_it8500_send_cmd(serial, cmd, &resp);
-	g_mutex_unlock(&devc->mutex);
+	ret = itech_it8500_cmd(sdi, cmd, &resp);
 	if (ret == SR_OK)
 		*result = RL32(&resp->data[0]);
 
 	g_free(cmd);
-	if (resp)
-		g_free(resp);
+	g_free(resp);
 
 	return ret;
 }
 
 SR_PRIV void itech_it8500_channel_send_value(const struct sr_dev_inst *sdi,
-		struct sr_channel *ch, float value, enum sr_mq mq,
+		struct sr_channel *ch, double value, enum sr_mq mq,
 		enum sr_unit unit, int digits)
 {
 	struct sr_datafeed_packet packet;
@@ -328,11 +348,15 @@ SR_PRIV void itech_it8500_channel_send_value(const struct sr_dev_inst *sdi,
 	struct sr_analog_encoding encoding;
 	struct sr_analog_meaning meaning;
 	struct sr_analog_spec spec;
+	double val;
 
+	val = value;
 	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = g_slist_append(NULL, ch);
 	analog.num_samples = 1;
-	analog.data = &value;
+	analog.data = &val;
+	analog.encoding->unitsize = sizeof(val);
+	analog.encoding->is_float = TRUE;
 	analog.meaning->mq = mq;
 	analog.meaning->unit = unit;
 	analog.meaning->mqflags = SR_MQFLAG_DC;
@@ -367,15 +391,15 @@ SR_PRIV int itech_it8500_receive_data(int fd, int revents, void *cb_data)
 	std_session_send_df_frame_begin(sdi);
 
 	l = g_slist_nth(sdi->channels, 0);
-	itech_it8500_channel_send_value(sdi, l->data, (float) devc->voltage,
+	itech_it8500_channel_send_value(sdi, l->data, devc->voltage,
 			SR_MQ_VOLTAGE, SR_UNIT_VOLT, 5);
 
 	l = g_slist_nth(sdi->channels, 1);
-	itech_it8500_channel_send_value(sdi, l->data, (float) devc->current,
+	itech_it8500_channel_send_value(sdi, l->data, devc->current,
 			SR_MQ_CURRENT, SR_UNIT_AMPERE, 5);
 
 	l = g_slist_nth(sdi->channels, 2);
-	itech_it8500_channel_send_value(sdi, l->data, (float) devc->power,
+	itech_it8500_channel_send_value(sdi, l->data, devc->power,
 			SR_MQ_POWER, SR_UNIT_WATT, 5);
 
 	std_session_send_df_frame_end(sdi);
